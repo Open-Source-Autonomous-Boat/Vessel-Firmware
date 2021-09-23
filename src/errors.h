@@ -1,2 +1,4 @@
-// check if esc/motor is working
-// check rudder
+// TODO: Add error handling
+// Check esc/motor
+// Check rudder
+// Check satellite link

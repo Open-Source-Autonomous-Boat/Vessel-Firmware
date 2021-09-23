@@ -1,7 +1,9 @@
+// TODO: Add check for if we have reached waypoint
+
 // ===GPS===
 #define gpsSerial Serial2 // Teensy 4.1 hardware serial port 2. This is the same as setting the serial pins to 7 and 8
 // IMPORTANT: Our loop() takes too long causing the serial buffer to fill up before we can read it. Increasing the serial buffer size for Serial2 fixes this.
-// To do so, go to 'C:\Program Files (x86)\Arduino\hardware\teensy\avr\cores\teensy4\HardwareSerial2.cpp'
+// To do this, go to 'C:\Program Files (x86)\Arduino\hardware\teensy\avr\cores\teensy4\HardwareSerial2.cpp'
 // Then change '#define SERIAL2_RX_BUFFER_SIZE 64' to '#define SERIAL2_RX_BUFFER_SIZE 256' and save the file
 #include <TinyGPS++.h>
 TinyGPSPlus gps;

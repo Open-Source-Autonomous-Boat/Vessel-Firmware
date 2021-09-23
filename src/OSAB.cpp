@@ -1,7 +1,4 @@
-/* TODO:
- * Add error handling (What do you do when the library can't connect to the lsm303?)
- * Add watchdog timer
- */
+// TODO: Add watchdog timer
 
 #include "errors.h" // Contains checks to ensure everything is working
 
@@ -58,25 +55,6 @@ void setup() {
 	TargetLat = Waypoints[TargetWaypoint].lat;
 	TargetLong = Waypoints[TargetWaypoint].lon;
 
-
-	// ===Check Mission File Integrity===
-	// ToDo: Code goes here
-	// ==================================
-
-	// ToDo: Check communication link integrity
-	// ==========================
-
-	// ===Initiate Satellite Communication===
-	// ToDo: Code goes here
-	// ToDo: Send startup message
-	// ===========================
-
-	// ===Compile Mission File===
-	// ToDo: Code goes here
-	// ==========================
-
-
-
 	// ===FOR TESTING ONLY===
 	Serial.println("===== WAYPOINTS CURRENTLY LOADED =====");
 	Serial.print(Waypoints[0].lat);
@@ -112,12 +90,17 @@ void loop() {
 		}
 		Rudder.write(RudderPos); // Steer the rudder
 		Motor.write(102); // Start the motor
+
+		// TODO: Add waypoint advancement
+		// TODO: Add loiter mode
+		// TODO: Loiter when last waypoint is reached
 	}
 	else {
 		Motor.write(100); // Stop the motor
 		Rudder.write(RudderTrim); // Center the rudder
 	}
 
+	// TODO: Add delay for printing and logging
 	serialLogDump();
 
 }	// End loop
