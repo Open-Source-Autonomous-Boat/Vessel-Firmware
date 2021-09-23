@@ -37,6 +37,8 @@ float RudderTrim = 100;		// PWM value of servo when straight
 int RudderMinPWM = 500;		// Don't drive the servo under this value
 int RudderMaxPWM = 2500;	// Don't drive the servo over this value
 
+unsigned long previousMillis = 0;
+
 void setupDevices();
 void serialLogDump();
 
@@ -100,8 +102,11 @@ void loop() {
 		Rudder.write(RudderTrim); // Center the rudder
 	}
 
-	// TODO: Add delay for printing and logging
-	serialLogDump();
+	unsigned long currentMillis = millis();
+	if(currentMillis - previousMillis >= 1000){
+		previousMillis = currentMillis;
+		serialLogDump();
+	}
 
 }	// End loop
 
