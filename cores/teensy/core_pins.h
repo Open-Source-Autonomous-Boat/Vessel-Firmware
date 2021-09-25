@@ -2445,9 +2445,109 @@ static inline void delayMicroseconds(uint16_t usec)
 }
 
 
+static inline void delayNanoseconds(uint16_t) __attribute__((always_inline, unused));
+static inline void delayNanoseconds(uint16_t nsec)
+{
+	if (__builtin_constant_p(nsec)) {
+		// use NOPs for the common usage of a constexpr input and short delay
+		if (nsec == 0) return;
+		if (nsec <= 1000 / (F_CPU / 1000000)) {
+			__asm__ volatile("nop");
+			return;
+		}
+		if (nsec <= 2000 / (F_CPU / 1000000)) {
+			__asm__ volatile("nop\n nop");
+			return;
+		}
+		if (nsec <= 3000 / (F_CPU / 1000000)) {
+			__asm__ volatile("nop\n nop\n nop");
+			return;
+		}
+		if (nsec <= 4000 / (F_CPU / 1000000)) {
+			__asm__ volatile("nop\n nop\n nop\n nop");
+			return;
+		}
+		if (nsec <= 5000 / (F_CPU / 1000000)) {
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			return;
+		}
+		if (nsec <= 6000 / (F_CPU / 1000000)) {
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			__asm__ volatile("nop");
+			return;
+		}
+		if (nsec <= 7000 / (F_CPU / 1000000)) {
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			__asm__ volatile("nop\n nop");
+			return;
+		}
+		if (nsec <= 8000 / (F_CPU / 1000000)) {
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			__asm__ volatile("nop\n nop\n nop");
+			return;
+		}
+		if (nsec <= 9000 / (F_CPU / 1000000)) {
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			__asm__ volatile("nop\n nop\n nop\n nop");
+			return;
+		}
+		if (nsec <= 10000 / (F_CPU / 1000000)) {
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			return;
+		}
+		if (nsec <= 11000 / (F_CPU / 1000000)) {
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			__asm__ volatile("nop");
+			return;
+		}
+		if (nsec <= 12000 / (F_CPU / 1000000)) {
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			__asm__ volatile("nop\n nop");
+			return;
+		}
+		if (nsec <= 13000 / (F_CPU / 1000000)) {
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			__asm__ volatile("nop\n nop\n nop");
+			return;
+		}
+		if (nsec <= 14000 / (F_CPU / 1000000)) {
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			__asm__ volatile("nop\n nop\n nop\n nop");
+			return;
+		}
+		if (nsec <= 15000 / (F_CPU / 1000000)) {
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			__asm__ volatile("nop\n nop\n nop\n nop\n nop");
+			return;
+		}
+	}
+	// if we can't use NOPs, just round up to the nearest microsecond...
+	// not ideal, but AVR is too slow to do anything more complex
+	delayMicroseconds((nsec >> 10) + 1);
+}
 
 
 #ifdef __cplusplus
 } // extern "C"
-#endif
+
+// DateTimeFields follows C library "struct tm" convention, but uses much less memory
+typedef struct  {
+	uint8_t sec;   // 0-59
+	uint8_t min;   // 0-59
+	uint8_t hour;  // 0-23
+	uint8_t wday;  // 0-6, 0=sunday
+	uint8_t mday;  // 1-31
+	uint8_t mon;   // 0-11
+	uint8_t year;  // 70-206, 70=1970, 206=2106
+} DateTimeFields;
+void breakTime(uint32_t time, DateTimeFields &tm);  // break 32 bit time into DateTimeFields
+uint32_t makeTime(const DateTimeFields &tm); // convert DateTimeFields to 32 bit time
+
+#endif // __cplusplus
 #endif
