@@ -30,8 +30,8 @@ bool loadMissionProfile(String path) {
 			Serial.println(error.f_str());
 		}
 
-		for(unsigned int i=0; i<sizeof deserializedJson["Waypoints"]; i++) {
-			Waypoints[i] = Waypoint {.lat = deserializedJson["Waypoints"][i][0], .lon = deserializedJson["waypoints"][i][1]};
+		for(unsigned int i=0; i<sizeof deserializedJson["waypoints"]; i++) {
+			Waypoints[i] = Waypoint {.lat = deserializedJson["waypoints"][i][0], .lon = deserializedJson["waypoints"][i][1]};
 		}
 			
 		return true; 
