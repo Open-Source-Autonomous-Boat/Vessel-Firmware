@@ -16,7 +16,7 @@ extern struct Waypoint Waypoints[20];
 bool loadMissionProfile(String path) {
 	missionProfile = SD.open(path, FILE_READ);
 	if (missionProfile) { // Check if the file opened
-		int i;
+	int i = 0;
 		while(missionProfile.available()) { // read from the file until there's nothing else in it:
 			fileCharArray[i] = missionProfile.read();
 			i++;
