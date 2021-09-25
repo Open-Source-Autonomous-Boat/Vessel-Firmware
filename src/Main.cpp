@@ -37,7 +37,10 @@ float RudderTrim = 100;		// PWM value of servo when straight
 int RudderMinPWM = 500;		// Don't drive the servo under this value
 int RudderMaxPWM = 2500;	// Don't drive the servo over this value
 
-unsigned long previousMillis = 0;
+// define max number of tasks to save precious Arduino RAM
+#define TASKER_MAX_TASKS 4
+#include <Tasker.h>
+Tasker tasker;
 
 void setupDevices();
 void serialLogDump();
@@ -57,6 +60,8 @@ void setup() {
 	TargetLat = Waypoints[TargetWaypoint].lat;
 	TargetLong = Waypoints[TargetWaypoint].lon;
 
+	tasker.setInterval(serialLogDump, 1000);
+
 	// ===FOR TESTING ONLY===
 	Serial.println("===== WAYPOINTS CURRENTLY LOADED =====");
 	Serial.print(Waypoints[0].lat);
@@ -73,6 +78,8 @@ void setup() {
 }
 
 void loop() {
+	tasker.loop();
+
 	now = rtc.now();
 	FetchGPS();		// Get the data from the GPS
 	UpdateFix();	// Check if the GPS has a fix and write it to the 'fix' bool
@@ -100,12 +107,6 @@ void loop() {
 	else {
 		Motor.write(100); // Stop the motor
 		Rudder.write(RudderTrim); // Center the rudder
-	}
-
-	unsigned long currentMillis = millis();
-	if(currentMillis - previousMillis >= 1000){
-		previousMillis = currentMillis;
-		serialLogDump();
 	}
 
 }	// End loop

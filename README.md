@@ -21,6 +21,7 @@ This is the firmware that runs on the main teensy 4.1 board.
 - [adafruit/RTClib](https://github.com/adafruit/RTClib) **Will be replaced by `PaulStoffregen/Time` soon.*
 - [greiman/SdFat](https://github.com/greiman/SdFat)
 - [PaulStoffregen/SPI](https://github.com/PaulStoffregen/SPI) **Included in Teensyduino*
+- [joysfera/arduino-tasker](https://github.com/joysfera/arduino-tasker)
 - [mikalhart/TinyGPSPlus](https://github.com/mikalhart/TinyGPSPlus)
 - [PaulStoffregen/Wire](https://github.com/PaulStoffregen/Wire) **Included in Teensyduino*
 
