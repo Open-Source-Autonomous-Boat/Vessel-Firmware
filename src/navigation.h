@@ -2,9 +2,10 @@
 
 // ===GPS===
 #define gpsSerial Serial2 // Teensy 4.1 hardware serial port 2. This is the same as setting the serial pins to 7 and 8
-// IMPORTANT: Our loop() takes too long causing the serial buffer to fill up before we can read it. Increasing the serial buffer size for Serial2 fixes this.
-// To do this, go to 'C:\Program Files (x86)\Arduino\hardware\teensy\avr\cores\teensy4\HardwareSerial2.cpp'
-// Then change '#define SERIAL2_RX_BUFFER_SIZE 64' to '#define SERIAL2_RX_BUFFER_SIZE 256' and save the file
+/* IMPORTANT: Our loop() takes too long causing the serial buffer to fill up before we can read it. Increasing the serial buffer size for Serial2 fixes this.
+ * To do this, go to 'C:\Program Files (x86)\Arduino\hardware\teensy\avr\cores\teensy4\HardwareSerial2.cpp'
+ * Then change '#define SERIAL2_RX_BUFFER_SIZE 64' to '#define SERIAL2_RX_BUFFER_SIZE 256' and save the file
+ */
 #include <TinyGPS++.h>
 TinyGPSPlus gps;
 TinyGPSCustom GPSFix(gps, "GPGGA", 7);
@@ -84,7 +85,7 @@ void FetchGPS() {
 				CurrLat = gps.location.lat();
 				CurrLong = gps.location.lng();
 
-			// ToDo: Get speed, heading, etc from GPS.
+			// TODO: Get speed and course from GPS
 			
 			if (gps.date.isValid() && gps.time.isValid()) {
 				UpdateClock(gps.date.year(), gps.date.month(), gps.date.day(), gps.time.hour(), gps.time.minute(), gps.time.second());
