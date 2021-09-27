@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Bill Greiman
+ * Copyright (c) 2011-2019 Bill Greiman
  * This file is part of the SdFat library for SD memory cards.
  *
  * MIT License
@@ -48,37 +48,19 @@ inline uint8_t SdSpiArduinoDriver::receive(uint8_t* buf, size_t count) {
   if (count == 0) {
     return 0;
   }
-#ifdef SPSR
+  uint8_t* pr = buf;
   SPDR = 0XFF;
-  while (--count) {
-    // nops optimize loop for 16MHz CPU 8 MHz SPI
-    nop;
-    nop;
+  while (--count > 0) {
     while (!(SPSR & _BV(SPIF))) {}
     uint8_t in = SPDR;
     SPDR = 0XFF;
-    *buf++ = in;
+    *pr++ = in;
+    // nops to optimize loop for 16MHz CPU 8 MHz SPI
+    nop;
+    nop;
   }
   while (!(SPSR & _BV(SPIF))) {}
-  *buf = SPDR;
-#elif defined(SPI_RXCIF_bm)
-  SPI0.DATA = 0XFF;
-  while (--count) {
-    // nops optimize loop for ATmega4809 16MHz CPU 8 MHz SPI
-    nop;
-    nop;
-    nop;
-    nop;
-    while (!(SPI0.INTFLAGS & SPI_RXCIF_bm)) {}
-    uint8_t in = SPI0.DATA;
-    SPI0.DATA = 0XFF;
-    *buf++ = in;
-  }
-  while (!(SPI0.INTFLAGS & SPI_RXCIF_bm)) {}
-  *buf = SPI0.DATA;
-#else  // SPSR
-#error Unsupported AVR CPU - edit SdFatConfig.h to use standard SPI library.
-#endif  // SPSR
+  *pr = SPDR;
   return 0;
 }
 //------------------------------------------------------------------------------
@@ -90,31 +72,15 @@ inline void SdSpiArduinoDriver::send(const uint8_t* buf , size_t count) {
   if (count == 0) {
     return;
   }
-#ifdef SPSR
   SPDR = *buf++;
-  while (--count) {
+  while (--count > 0) {
     uint8_t b = *buf++;
-    // nops optimize loop for 16MHz CPU 8 MHz SPI
-    nop;
-    nop;
     while (!(SPSR & (1 << SPIF))) {}
     SPDR = b;
+    // nops to optimize loop for 16MHz CPU 8 MHz SPI
+    nop;
+    nop;
   }
   while (!(SPSR & (1 << SPIF))) {}
-#elif defined(SPI_RXCIF_bm)
-  SPI0.DATA = *buf++;
-  while (--count) {
-    uint8_t b = *buf++;
-    // nops optimize loop for ATmega4809 16MHz CPU 8 MHz SPI
-    nop;
-    nop;
-    nop;
-    while (!(SPI0.INTFLAGS & SPI_RXCIF_bm)) {}
-    SPI0.DATA = b;
-  }
-  while (!(SPI0.INTFLAGS & SPI_RXCIF_bm)) {}
-#else  // SPSR
-#error Unsupported AVR CPU - edit SdFatConfig.h to use standard SPI library.
-#endif  // SPSR
 }
 #endif  // SdSpiAvr_h

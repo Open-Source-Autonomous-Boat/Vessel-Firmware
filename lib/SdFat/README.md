@@ -1,20 +1,13 @@
-### Warning: This is SdFat Version 2.
+### Warning: This is an early beta version of SdFat Version 2.
 
-Earlier releases of Version 1 are here:
+September 19, 2019 - added support for Teensy 4.0 SDIO.
 
-https://github.com/greiman/SdFat/releases
+This library is in early development and features may change.
+It will clearly have bugs. I am posting this version to get comments and
+help finding bugs/compatibility problems.
 
-###### UTF-8 encoded filenames are supported in v2.1.0.
-
-Try the UnicodeFilenames example.  Here is output from ls:
-<pre>
-Type any character to begin
-ls:
-         0 😀/
-          20 россиянин
-          17 très élégant
-           9 狗.txt
-</pre>
+You can help by posting issues for problems you find.  I am doing a great deal
+of testing but actual applications make the best test cases.
 
 SdFat Version 2 supports FAT16/FAT32 and exFAT SD cards. It is mostly
 backward compatible with SdFat Version 1 for FAT16/FAT32 cards.
@@ -100,11 +93,11 @@ http://arduino.cc/en/Guide/Libraries
 A number of configuration options can be set by editing SdFatConfig.h
 define macros.  See the html documentation File tab for details.
 
-Please read the html documentation for this library in SdFat/doc/SdFat.html.
+Please read the html documentation for this library in SdFat/extras/SdFat.html.
 Start with the  Main Page.  Next go to the Classes tab and read the
 documentation for the classes SdFat32, SdExFat, SdFs, File32, ExFile, FsFile.
 
 The SdFat and File classes are defined in terms of the above classes by
 typedefs. Edit SdFatConfig.h to select class options.
 
-Please continue by reading the html documentation in the SdFat/doc folder.
+Please continue by reading the html documentation in the SdFat/extras folder.

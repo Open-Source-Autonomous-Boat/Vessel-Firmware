@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Bill Greiman
+ * Copyright (c) 2011-2019 Bill Greiman
  * This file is part of the SdFat library for SD memory cards.
  *
  * MIT License
@@ -151,7 +151,7 @@ static uint8_t CRC7(const uint8_t* data, uint8_t n) {
 #if USE_SD_CRC == 1
 // Shift based CRC-CCITT
 // uses the x^16,x^12,x^5,x^1 polynomial.
-static uint16_t CRC_CCITT(const uint8_t* data, size_t n) {
+static uint16_t CRC_CCITT(const uint8_t *data, size_t n) {
   uint16_t crc = 0;
   for (size_t i = 0; i < n; i++) {
     crc = (uint8_t)(crc >> 8) | (crc << 8);
@@ -222,7 +222,6 @@ static uint16_t CRC_CCITT(const uint8_t* data, size_t n) {
 //------------------------------------------------------------------------------
 bool SdSpiCard::begin(SdSpiConfig spiConfig) {
   SdMillis_t t0 = SysCall::curTimeMS();
-  m_spiActive = false;
   m_errorCode = SD_CARD_ERROR_NONE;
   m_type = 0;
   m_csPin = spiConfig.csPin;
@@ -239,12 +238,16 @@ bool SdSpiCard::begin(SdSpiConfig spiConfig) {
   spiBegin(spiConfig);
   uint32_t arg;
 #if ENABLE_DEDICATED_SPI
+  m_sharedSpi = !(spiConfig.options & DEDICATED_SPI);
+  m_spiActive = false;
   m_curState = IDLE_STATE;
-  m_sharedSpi = spiOptionShared(spiConfig.options);
 #else  // ENABLE_DEDICATED_SPI
-  // m_sharedSpi is a static const bool in this case.
-  static_assert(m_sharedSpi == true, "m_sharedSpi bug");
+  if (spiConfig.options & DEDICATED_SPI) {
+    error(SD_CARD_ERROR_INVALID_CARD_CONFIG);
+    goto fail;
+  }
 #endif  // ENABLE_DEDICATED_SPI
+
   spiStart();
 
   // must supply min of 74 clock cycles with CS high.
@@ -323,18 +326,13 @@ bool SdSpiCard::begin(SdSpiConfig spiConfig) {
   spiSetSckSpeed(spiConfig.maxSck);
   return true;
 
- fail:
+fail:
   spiStop();
   return false;
 }
 //------------------------------------------------------------------------------
 // send command and return error code.  Return zero for OK
 uint8_t SdSpiCard::cardCommand(uint8_t cmd, uint32_t arg) {
-#if ENABLE_DEDICATED_SPI
-  if (m_curState != IDLE_STATE && !syncDevice()) {
-    return 0XFF;
-  }
-#endif  // ENABLE_DEDICATED_SPI
   // select card
   if (!m_spiActive) {
     spiStart();
@@ -365,7 +363,7 @@ uint8_t SdSpiCard::cardCommand(uint8_t cmd, uint32_t arg) {
   spiSend(cmd | 0x40);
 
   // send argument
-  uint8_t* pa = reinterpret_cast<uint8_t*>(&arg);
+  uint8_t *pa = reinterpret_cast<uint8_t *>(&arg);
   for (int8_t i = 3; i >= 0; i--) {
     spiSend(pa[i]);
   }
@@ -421,7 +419,7 @@ bool SdSpiCard::erase(uint32_t firstSector, uint32_t lastSector) {
   spiStop();
   return true;
 
- fail:
+fail:
   spiStop();
   return false;
 }
@@ -432,16 +430,17 @@ bool SdSpiCard::eraseSingleSectorEnable() {
 }
 //------------------------------------------------------------------------------
 bool SdSpiCard::isBusy() {
-#if ENABLE_DEDICATED_SPI
-  if (m_curState == READ_STATE) {
-    return false;
-  }
-#endif  // ENABLE_DEDICATED_SPI
+  bool rtn = true;
   bool spiActive = m_spiActive;
   if (!spiActive) {
     spiStart();
   }
-  bool rtn = 0XFF != spiReceive();
+  for (uint8_t i = 0; i < 8; i++) {
+    if (0XFF == spiReceive()) {
+      rtn = false;
+      break;
+    }
+  }
   if (!spiActive) {
     spiStop();
   }
@@ -459,7 +458,7 @@ bool SdSpiCard::isTimedOut(SdMillis_t startMS, SdMillis_t timeoutMS) {
   return (SysCall::curTimeMS() - startMS) > timeoutMS;
 }
 //------------------------------------------------------------------------------
-bool SdSpiCard::readData(uint8_t* dst) {
+bool SdSpiCard::readData(uint8_t *dst) {
   return readData(dst, 512);
 }
 //------------------------------------------------------------------------------
@@ -502,13 +501,14 @@ bool SdSpiCard::readData(uint8_t* dst, size_t count) {
 #endif  // USE_SD_CRC
   return true;
 
- fail:
+fail:
   spiStop();
   return false;
 }
 //------------------------------------------------------------------------------
 bool SdSpiCard::readOCR(uint32_t* ocr) {
-  uint8_t* p = reinterpret_cast<uint8_t*>(ocr);
+  uint8_t *p = reinterpret_cast<uint8_t*>(ocr);
+  syncDevice();
   if (cardCommand(CMD58, 0)) {
     error(SD_CARD_ERROR_CMD58);
     goto fail;
@@ -519,7 +519,7 @@ bool SdSpiCard::readOCR(uint32_t* ocr) {
   spiStop();
   return true;
 
- fail:
+fail:
   spiStop();
   return false;
 }
@@ -527,6 +527,7 @@ bool SdSpiCard::readOCR(uint32_t* ocr) {
 /** read CID or CSR register */
 bool SdSpiCard::readRegister(uint8_t cmd, void* buf) {
   uint8_t* dst = reinterpret_cast<uint8_t*>(buf);
+  syncDevice();
   if (cardCommand(cmd, 0)) {
     error(SD_CARD_ERROR_READ_REG);
     goto fail;
@@ -537,7 +538,7 @@ bool SdSpiCard::readRegister(uint8_t cmd, void* buf) {
   spiStop();
   return true;
 
- fail:
+fail:
   spiStop();
   return false;
 }
@@ -557,7 +558,7 @@ bool SdSpiCard::readSingle(uint32_t sector, uint8_t* dst) {
   spiStop();
   return true;
 
- fail:
+fail:
   spiStop();
   return false;
 }
@@ -570,9 +571,10 @@ bool SdSpiCard::readStart(uint32_t sector) {
     error(SD_CARD_ERROR_CMD18);
     goto fail;
   }
+//  spiStop();
   return true;
 
- fail:
+fail:
   spiStop();
   return false;
 }
@@ -589,41 +591,16 @@ bool SdSpiCard::readStatus(uint8_t* status) {
   spiStop();
   return true;
 
- fail:
+fail:
   spiStop();
   return false;
 }
 //------------------------------------------------------------------------------
-bool SdSpiCard::readSectors(uint32_t sector, uint8_t* dst, size_t ns) {
-#if ENABLE_DEDICATED_SPI
-  if (m_curState != READ_STATE || sector != m_curSector) {
-    if (!readStart(sector)) {
-      goto fail;
-    }
-    m_curSector = sector;
-    m_curState = READ_STATE;
-  }
-  for (size_t i = 0; i < ns; i++, dst += 512) {
-    if (!readData(dst, 512)) {
-      goto fail;
-    }
-  }
-  m_curSector += ns;
-  return m_sharedSpi ? syncDevice() : true;
-#else  // ENABLE_DEDICATED_SPI
-  if (!readStart(sector)) {
-    goto fail;
-  }
-  for (size_t i = 0; i < ns; i++, dst += 512) {
-    if (!readData(dst, 512)) {
-      goto fail;
-    }
-  }
-  return readStop();
-#endif  // ENABLE_DEDICATED_SPI
- fail:
-  return false;
+uint32_t SdSpiCard::sectorCount() {
+  csd_t csd;
+  return readCSD(&csd) ? sdCardCapacity(&csd) : 0;
 }
+
 //------------------------------------------------------------------------------
 bool SdSpiCard::readStop() {
   if (cardCommand(CMD12, 0)) {
@@ -633,22 +610,15 @@ bool SdSpiCard::readStop() {
   spiStop();
   return true;
 
- fail:
+fail:
   spiStop();
   return false;
-}
-//------------------------------------------------------------------------------
-uint32_t SdSpiCard::sectorCount() {
-  csd_t csd;
-  return readCSD(&csd) ? sdCardCapacity(&csd) : 0;
 }
 //------------------------------------------------------------------------------
 void SdSpiCard::spiStart() {
   if (!m_spiActive) {
     spiActivate();
     spiSelect();
-    // Dummy byte to drive MISO busy status.
-    spiSend(0XFF);    
     m_spiActive = true;
   }
 }
@@ -656,26 +626,10 @@ void SdSpiCard::spiStart() {
 void SdSpiCard::spiStop() {
   if (m_spiActive) {
     spiUnselect();
-    // Insure MISO goes to low Z.
-    spiSend(0XFF);        
+    spiSend(0XFF);
     spiDeactivate();
     m_spiActive = false;
   }
-}
-//------------------------------------------------------------------------------
-bool SdSpiCard::syncDevice() {
-#if ENABLE_DEDICATED_SPI
-  // Insure no recursive loop with cardCommand().
-  uint8_t state = m_curState;
-  m_curState = IDLE_STATE;
-  if (state == WRITE_STATE) {
-    return writeStop();
-  }
-  if (state == READ_STATE) {
-    return readStop();
-  }
-#endif  // ENABLE_DEDICATED_SPI
-  return true;
 }
 //------------------------------------------------------------------------------
 // wait for card to go not busy
@@ -698,48 +652,6 @@ bool SdSpiCard::waitNotBusy(SdMillis_t timeoutMS) {
   }
   return true;
 #endif  // WDT_YIELD_TIME_MILLIS
-}
-//------------------------------------------------------------------------------
-bool SdSpiCard::writeData(const uint8_t* src) {
-  // wait for previous write to finish
-  DBG_BEGIN_TIME(DBG_WRITE_BUSY);
-  if (!waitNotBusy(SD_WRITE_TIMEOUT)) {
-    error(SD_CARD_ERROR_WRITE_TIMEOUT);
-    goto fail;
-  }
-  DBG_END_TIME(DBG_WRITE_BUSY);
-  if (!writeData(WRITE_MULTIPLE_TOKEN, src)) {
-    goto fail;
-  }
-  return true;
-
- fail:
-  spiStop();
-  return false;
-}
-//------------------------------------------------------------------------------
-// send one sector of data for write sector or write multiple sectors
-bool SdSpiCard::writeData(uint8_t token, const uint8_t* src) {
-#if USE_SD_CRC
-  uint16_t crc = CRC_CCITT(src, 512);
-#else  // USE_SD_CRC
-  uint16_t crc = 0XFFFF;
-#endif  // USE_SD_CRC
-  spiSend(token);
-  spiSend(src, 512);
-  spiSend(crc >> 8);
-  spiSend(crc & 0XFF);
-
-  m_status = spiReceive();
-  if ((m_status & DATA_RES_MASK) != DATA_RES_ACCEPTED) {
-    error(SD_CARD_ERROR_WRITE_DATA);
-    goto fail;
-  }
-  return true;
-
- fail:
-  spiStop();
-  return false;
 }
 //------------------------------------------------------------------------------
 bool SdSpiCard::writeSingle(uint32_t sector, const uint8_t* src) {
@@ -773,23 +685,74 @@ bool SdSpiCard::writeSingle(uint32_t sector, const uint8_t* src) {
   spiStop();
   return true;
 
- fail:
+fail:
   spiStop();
   return false;
 }
 //------------------------------------------------------------------------------
-bool SdSpiCard::writeSectors(uint32_t sector, const uint8_t* src, size_t ns) {
+bool SdSpiCard::readSectors(uint32_t sector, uint8_t* dst, size_t ns) {
 #if ENABLE_DEDICATED_SPI
+  if (m_curState != READ_STATE || sector != m_curSector) {
+    if (!syncDevice()) {
+      return false;
+    }
+    if (!SdSpiCard::readStart(sector)) {
+      return false;
+    }
+    m_curSector = sector;
+    m_curState = READ_STATE;
+  }
+  for (size_t i = 0; i < ns; i++, dst += 512) {
+    if (!readData(dst, 512)) {
+      return false;
+    }
+  }
+  m_curSector += ns;
+  return m_sharedSpi ? syncDevice() : true;
+#else  // ENABLE_DEDICATED_SPI
+  if (!readStart(sector)) {
+    return false;
+  }
+  for (size_t i = 0; i < ns; i++, dst += 512) {
+    if (!readData(dst, 512)) {
+      return false;
+    }
+  }
+  return readStop();
+#endif  // ENABLE_DEDICATED_SPI
+}
+//------------------------------------------------------------------------------
+bool SdSpiCard::syncDevice() {
+#if ENABLE_DEDICATED_SPI
+  if (m_curState == READ_STATE) {
+    if (!SdSpiCard::readStop()) {
+      return false;
+    }
+  } else if (m_curState == WRITE_STATE) {
+    if (!SdSpiCard::writeStop()) {
+      return false;
+    }
+  }
+  m_curState = IDLE_STATE;
+#endif  // ENABLE_DEDICATED_SPI
+  return true;
+}
+//------------------------------------------------------------------------------
+bool SdSpiCard::writeSectors(uint32_t sector, const uint8_t* src, size_t ns) {
+  #if ENABLE_DEDICATED_SPI
   if (m_curState != WRITE_STATE || m_curSector != sector) {
+    if (!syncDevice()) {
+      return false;
+    }
     if (!writeStart(sector)) {
-      goto fail;
+      return false;
     }
     m_curSector = sector;
     m_curState = WRITE_STATE;
   }
   for (size_t i = 0; i < ns; i++, src += 512) {
     if (!writeData(src)) {
-      goto fail;
+      return false;
     }
   }
   m_curSector += ns;
@@ -804,9 +767,51 @@ bool SdSpiCard::writeSectors(uint32_t sector, const uint8_t* src, size_t ns) {
     }
   }
   return writeStop();
-#endif  // ENABLE_DEDICATED_SPI
 
  fail:
+  spiStop();
+  return false;
+#endif  // ENABLE_DEDICATED_SPI
+}
+//------------------------------------------------------------------------------
+bool SdSpiCard::writeData(const uint8_t* src) {
+  // wait for previous write to finish
+  DBG_BEGIN_TIME(DBG_WRITE_BUSY);
+  if (!waitNotBusy(SD_WRITE_TIMEOUT)) {
+    error(SD_CARD_ERROR_WRITE_TIMEOUT);
+    goto fail;
+  }
+  DBG_END_TIME(DBG_WRITE_BUSY);
+  if (!writeData(WRITE_MULTIPLE_TOKEN, src)) {
+    goto fail;
+  }
+  return true;
+
+fail:
+  spiStop();
+  return false;
+}
+//------------------------------------------------------------------------------
+// send one sector of data for write sector or write multiple sectors
+bool SdSpiCard::writeData(uint8_t token, const uint8_t* src) {
+#if USE_SD_CRC
+  uint16_t crc = CRC_CCITT(src, 512);
+#else  // USE_SD_CRC
+  uint16_t crc = 0XFFFF;
+#endif  // USE_SD_CRC
+  spiSend(token);
+  spiSend(src, 512);
+  spiSend(crc >> 8);
+  spiSend(crc & 0XFF);
+
+  m_status = spiReceive();
+  if ((m_status & DATA_RES_MASK) != DATA_RES_ACCEPTED) {
+    error(SD_CARD_ERROR_WRITE_DATA);
+    goto fail;
+  }
+  return true;
+
+fail:
   spiStop();
   return false;
 }
@@ -822,12 +827,12 @@ bool SdSpiCard::writeStart(uint32_t sector) {
   }
   return true;
 
- fail:
+fail:
   spiStop();
   return false;
 }
 //------------------------------------------------------------------------------
-bool SdSpiCard::writeStart(uint32_t sector, uint32_t eraseCount) {
+bool SdSpiCard::writeStart(uint32_t blockNumber, uint32_t eraseCount) {
   // send pre-erase count
   if (cardAcmd(ACMD23, eraseCount)) {
     error(SD_CARD_ERROR_ACMD23);
@@ -835,15 +840,15 @@ bool SdSpiCard::writeStart(uint32_t sector, uint32_t eraseCount) {
   }
   // use address if not SDHC card
   if (type() != SD_CARD_TYPE_SDHC) {
-    sector <<= 9;
+    blockNumber <<= 9;
   }
-  if (cardCommand(CMD25, sector)) {
+  if (cardCommand(CMD25, blockNumber)) {
     error(SD_CARD_ERROR_CMD25);
     goto fail;
   }
   return true;
 
- fail:
+fail:
   spiStop();
   return false;
 }
@@ -858,7 +863,7 @@ bool SdSpiCard::writeStop() {
   spiStop();
   return true;
 
- fail:
+fail:
   error(SD_CARD_ERROR_STOP_TRAN);
   spiStop();
   return false;

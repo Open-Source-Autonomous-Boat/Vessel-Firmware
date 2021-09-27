@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Bill Greiman
+ * Copyright (c) 2011-2019 Bill Greiman
  * This file is part of the SdFat library for SD memory cards.
  *
  * MIT License
@@ -51,14 +51,15 @@ class FatVolume : public  FatPartition {
     if (!chdir()) {
       return false;
     }
-    if (setCwv || !m_cwv) {
+    if (setCwv) {
       m_cwv = this;
     }
     return true;
   }
   /** Change global current working volume to this volume. */
   void chvol() {m_cwv = this;}
-
+  /** \return current working volume. */
+  static FatVolume* cwv() {return m_cwv;}
   /**
    * Set volume working directory to root.
    * \return true for success or false for failure.
@@ -331,10 +332,9 @@ class FatVolume : public  FatPartition {
 #endif  // ENABLE_ARDUINO_STRING
 
  private:
-  friend FatFile;
-  static FatVolume* cwv() {return m_cwv;}
   FatFile* vwd() {return &m_vwd;}
-  static FatVolume* m_cwv;
+  friend FatFile;
   FatFile m_vwd;
+  static FatVolume* m_cwv;
 };
 #endif  // FatVolume_h

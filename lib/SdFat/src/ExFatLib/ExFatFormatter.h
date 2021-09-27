@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Bill Greiman
+ * Copyright (c) 2011-2019 Bill Greiman
  * This file is part of the SdFat library for SD memory cards.
  *
  * MIT License
@@ -27,6 +27,7 @@
 #include "ExFatConfig.h"
 #include "../common/SysCall.h"
 #include "../common/BlockDevice.h"
+#include "upcase.h"
 /**
  * \class ExFatFormatter
  * \brief Format an exFAT volume.

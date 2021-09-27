@@ -1,6 +1,9 @@
 // Example to demonstrate write latency for preallocated exFAT files.
 // I suggest you write a PC program to convert very large bin files.
 //
+// If an exFAT SD is required, the ExFatFormatter example will format
+// smaller cards with an exFAT file system.
+//
 // The maximum data rate will depend on the quality of your SD,
 // the size of the FIFO, and using dedicated SPI.
 #include "SdFat.h"
@@ -21,10 +24,6 @@ const uint32_t LOG_INTERVAL_USEC = 2000;
 
 // Set USE_RTC nonzero for file timestamps.
 // RAM use will be marginal on Uno with RTClib.
-// 0 - RTC not used
-// 1 - DS1307
-// 2 - DS3231
-// 3 - PCF8523
 #define USE_RTC 0
 #if USE_RTC
 #include "RTClib.h"
@@ -65,17 +64,12 @@ const uint8_t SD_CS_PIN = SDCARD_SS_PIN;
 // Preallocate 1GiB file.
 const uint32_t PREALLOCATE_SIZE_MiB = 1024UL;
 
-// Try max SPI clock for an SD. Reduce SPI_CLOCK if errors occur.
-#define SPI_CLOCK SD_SCK_MHZ(50)
-
-// Try to select the best SD card configuration.
-#if HAS_SDIO_CLASS
-#define SD_CONFIG SdioConfig(FIFO_SDIO)
-#elif  ENABLE_DEDICATED_SPI
-#define SD_CONFIG SdSpiConfig(SD_CS_PIN, DEDICATED_SPI, SPI_CLOCK)
-#else  // HAS_SDIO_CLASS
-#define SD_CONFIG SdSpiConfig(SD_CS_PIN, SHARED_SPI, SPI_CLOCK)
-#endif  // HAS_SDIO_CLASS
+// Select the fastest interface. Assumes no other SPI devices.
+#if ENABLE_DEDICATED_SPI
+#define SD_CONFIG SdSpiConfig(SD_CS_PIN, DEDICATED_SPI)
+#else  // ENABLE_DEDICATED_SPI
+#define SD_CONFIG SdSpiConfig(SD_CS_PIN, SHARED_SPI)
+#endif  // ENABLE_DEDICATED_SPI
 
 // Save SRAM if 328.
 #ifdef __AVR_ATmega328P__
@@ -157,15 +151,8 @@ file_t csvFile;
 char binName[] = "ExFatLogger00.bin";
 //------------------------------------------------------------------------------
 #if USE_RTC
-#if USE_RTC == 1
 RTC_DS1307 rtc;
-#elif USE_RTC == 2
-RTC_DS3231 rtc;
-#elif USE_RTC == 3
-RTC_PCF8523 rtc;
-#else  // USE_RTC == type
-#error USE_RTC type not implemented.
-#endif  // USE_RTC == type
+
 // Call back for file timestamps.  Only called for file create and sync().
 void dateTime(uint16_t* date, uint16_t* time, uint8_t* ms10) {
   DateTime now = rtc.now();
@@ -191,7 +178,7 @@ void binaryToCsv() {
   data_t binData[FIFO_DIM];
 
   if (!binFile.seekSet(512)) {
-	  error("binFile.seek failed");
+	  error("binFile.seek faile");
   }
   uint32_t tPct = millis();
   printRecord(&csvFile, nullptr);
@@ -223,15 +210,6 @@ void binaryToCsv() {
   Serial.print(F("Done: "));
   Serial.print(0.001*(millis() - t0));
   Serial.println(F(" Seconds"));
-}
-//------------------------------------------------------------------------------
-void clearSerialInput() {
-  uint32_t m = micros();
-  do {
-    if (Serial.read() >= 0) {
-      m = micros();
-    }
-  } while (micros() - m < 10000);
 }
 //-------------------------------------------------------------------------------
 void createBinFile() {
@@ -283,7 +261,7 @@ bool createCsvFile() {
   if (!csvFile.open(csvName, O_WRONLY | O_CREAT | O_TRUNC)) {
     error("open csvFile failed");
   }
-  clearSerialInput();
+  serialClearInput();
   Serial.print(F("Writing: "));
   Serial.print(csvName);
   Serial.println(F(" - type any character to stop"));
@@ -311,7 +289,7 @@ void logData() {
   if (binFile.write(fifoBuf, 512) != 512) {
     error("write first sector failed");
   }
-  clearSerialInput();
+  serialClearInput();
   Serial.println(F("Type any character to stop"));
 
   // Wait until SD is not busy.
@@ -419,7 +397,7 @@ void logData() {
 //------------------------------------------------------------------------------
 void openBinFile() {
   char name[FILE_NAME_DIM];
-  clearSerialInput();
+  serialClearInput();
   Serial.println(F("Enter file name"));
   if (!serialReadLine(name, sizeof(name))) {
     return;
@@ -447,7 +425,7 @@ void printData() {
   if (!binFile.seekSet(512)) {
     error("seek failed");
   }
-  clearSerialInput();
+  serialClearInput();
   Serial.println(F("type any character to stop\n"));
   delay(1000);
   printRecord(&Serial, nullptr);
@@ -461,10 +439,16 @@ void printData() {
 }
 //------------------------------------------------------------------------------
 void printUnusedStack() {
-#if HAS_UNUSED_STACK
+#if HAS_UNUSED_STACK  
   Serial.print(F("\nUnused stack: "));
   Serial.println(UnusedStack());
-#endif  // HAS_UNUSED_STACK
+#endif  // HAS_UNUSED_STACK 
+}
+//------------------------------------------------------------------------------
+void serialClearInput() {
+  do {
+    delay(10);
+  } while (Serial.read() >= 0);
 }
 //------------------------------------------------------------------------------
 bool serialReadLine(char* str, size_t size) {
@@ -492,7 +476,7 @@ void testSensor() {
   const uint32_t interval = 200000;
   int32_t diff;
   data_t data;
-  clearSerialInput();
+  serialClearInput();
   Serial.println(F("\nTesting - type any character to stop\n"));
   delay(1000);
   printRecord(&Serial, nullptr);
@@ -554,7 +538,7 @@ void setup() {
 void loop() {
   printUnusedStack();
   // Read any Serial data.
-  clearSerialInput();
+  serialClearInput();
 
   if (ERROR_LED_PIN >= 0) {
     digitalWrite(ERROR_LED_PIN, LOW);

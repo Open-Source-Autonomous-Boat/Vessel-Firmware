@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Bill Greiman
+ * Copyright (c) 2011-2019 Bill Greiman
  * This file is part of the SdFat library for SD memory cards.
  *
  * MIT License
@@ -24,9 +24,7 @@
  */
 #ifndef DebugMacros_h
 #define DebugMacros_h
-#include "SdFatConfig.h"
-
-// 0 - disable, 1 - fail, halt 2 - fail, halt, warn
+#include "../SdFatConfig.h"
 #define USE_DBG_MACROS 0
 
 #if USE_DBG_MACROS
@@ -34,41 +32,22 @@
 #ifndef DBG_FILE
 #error DBG_FILE not defined
 #endif  // DBG_FILE
-
-__attribute__((unused)) static void dbgFail(uint16_t line) {
+static void dbgPrint(uint16_t line) {
   Serial.print(F("DBG_FAIL: "));
   Serial.print(F(DBG_FILE));
   Serial.write('.');
   Serial.println(line);
 }
-__attribute__((unused)) static void dbgHalt(uint16_t line) {
-  Serial.print(F("DBG_HALT: "));
-  Serial.print(F(DBG_FILE));
-  Serial.write('.');
-  Serial.println(line);
-  while (true) {}
-}
-#define DBG_FAIL_MACRO dbgFail(__LINE__)
-#define DBG_HALT_MACRO dbgHalt(__LINE__)
-#define DBG_HALT_IF(b) if (b) {dbgHalt(__LINE__);}
 
+#define DBG_PRINT_IF(b) if (b) {Serial.print(F(__FILE__));\
+                        Serial.println(__LINE__);}
+#define DBG_HALT_IF(b) if (b) { Serial.print(F("DBG_HALT "));\
+                       Serial.print(F(__FILE__)); Serial.println(__LINE__);\
+                       while (true) {}}
+#define DBG_FAIL_MACRO dbgPrint(__LINE__);
 #else  // USE_DBG_MACROS
 #define DBG_FAIL_MACRO
-#define DBG_HALT_MACRO
+#define DBG_PRINT_IF(b)
 #define DBG_HALT_IF(b)
 #endif  // USE_DBG_MACROS
-
-#if USE_DBG_MACROS > 1
-__attribute__((unused)) static void dbgWarn(uint16_t line) {
-  Serial.print(F("DBG_WARN: "));
-  Serial.print(F(DBG_FILE));
-  Serial.write('.');
-  Serial.println(line);
-}
-#define DBG_WARN_MACRO dbgWarn(__LINE__)
-#define DBG_WARN_IF(b) if (b) {dbgWarn(__LINE__);}
-#else  // USE_DBG_MACROS > 1
-#define DBG_WARN_MACRO
-#define DBG_WARN_IF(b)
-#endif  // USE_DBG_MACROS > 1
 #endif  // DebugMacros_h

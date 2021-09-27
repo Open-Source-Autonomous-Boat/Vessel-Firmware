@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Bill Greiman
+ * Copyright (c) 2011-2019 Bill Greiman
  * This file is part of the SdFat library for SD memory cards.
  *
  * MIT License
@@ -46,9 +46,8 @@ uint8_t SdSpiArduinoDriver::receive() {
   return m_spi->transfer(0XFF);
 }
 //------------------------------------------------------------------------------
-uint8_t SdSpiArduinoDriver::receive(uint8_t* buf, size_t count) {
-  memset(buf, 0XFF, count);
-  m_spi->transfer(buf, count);
+uint8_t SdSpiArduinoDriver::receive(uint8_t *buf, size_t count) {
+  m_spi->transferIn(buf, count);
   return 0;
 }
 //------------------------------------------------------------------------------
@@ -56,7 +55,7 @@ void SdSpiArduinoDriver::send(uint8_t data) {
   m_spi->transfer(data);
 }
 //------------------------------------------------------------------------------
-void SdSpiArduinoDriver::send(const uint8_t* buf, size_t count) {
+void SdSpiArduinoDriver::send(const uint8_t *buf, size_t count) {
   // If not a multiple of four.  Command with CRC used six byte send.
   while (count%4) {
     send(*buf++);

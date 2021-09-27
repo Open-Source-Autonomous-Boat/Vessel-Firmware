@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Bill Greiman
+ * Copyright (c) 2011-2019 Bill Greiman
  * This file is part of the SdFat library for SD memory cards.
  *
  * MIT License
@@ -91,13 +91,7 @@ inline void setLe64(uint8_t* dst, uint64_t src) {
   dst[7] = src >> 56;
 }
 #endif  // USE_SIMPLE_LITTLE_ENDIAN
-//------------------------------------------------------------------------------
-// Reserved characters for exFAT names and FAT LFN.
-inline bool lfnReservedChar(uint8_t c) {
-  return c < 0X20 || c == '"' || c == '*' || c == '/' || c == ':'
-      || c == '<' || c == '>' || c == '?' || c == '\\'|| c == '|';
-}
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 const uint16_t MBR_SIGNATURE = 0xAA55;
 const uint16_t PBR_SIGNATURE = 0xAA55;
 
@@ -109,13 +103,13 @@ typedef struct mbrPartition {
   uint8_t relativeSectors[4];
   uint8_t totalSectors[4];
 } MbrPart_t;
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 typedef struct masterBootRecordSector {
   uint8_t   bootCode[446];
   MbrPart_t part[4];
   uint8_t   signature[2];
 } MbrSector_t;
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 typedef struct partitionBootSector {
   uint8_t  jmpInstruction[3];
   char     oemName[8];
@@ -123,12 +117,12 @@ typedef struct partitionBootSector {
   uint8_t  bootCode[390];
   uint8_t  signature[2];
 } pbs_t;
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 typedef struct {
   uint8_t type;
   uint8_t data[31];
 } DirGeneric_t;
-//==============================================================================
+//=============================================================================
 typedef struct {
   uint64_t position;
   uint32_t cluster;
@@ -263,9 +257,7 @@ static inline bool isSubdir(const DirFat_t* dir) {
  * begin with an entry having this mask.
  */
 const uint8_t FAT_ORDER_LAST_LONG_ENTRY = 0X40;
-/** Max long file name length */
 
-const uint8_t FAT_MAX_LFN_LENGTH = 255;
 typedef struct {
   uint8_t  order;
   uint8_t  unicode1[10];

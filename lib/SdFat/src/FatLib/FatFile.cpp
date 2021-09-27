@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Bill Greiman
+ * Copyright (c) 2011-2019 Bill Greiman
  * This file is part of the SdFat library for SD memory cards.
  *
  * MIT License
@@ -71,7 +71,7 @@ bool FatFile::addDirCluster() {
     goto fail;
   }
   sector = m_vol->clusterStartSector(m_curCluster);
-  pc = m_vol->cacheFetchData(sector, FsCache::CACHE_RESERVE_FOR_WRITE);
+  pc = m_vol->cacheFetchData(sector, FatCache::CACHE_RESERVE_FOR_WRITE);
   if (!pc) {
     DBG_FAIL_MACRO;
     goto fail;
@@ -88,7 +88,7 @@ bool FatFile::addDirCluster() {
   m_curPosition += m_vol->bytesPerCluster();
   return true;
 
- fail:
+fail:
   return false;
 }
 //------------------------------------------------------------------------------
@@ -103,7 +103,7 @@ DirFat_t* FatFile::cacheDirEntry(uint8_t action) {
   }
   return pc->dir + (m_dirIndex & 0XF);
 
- fail:
+fail:
   return nullptr;
 }
 //------------------------------------------------------------------------------
@@ -116,7 +116,7 @@ bool FatFile::close() {
 //------------------------------------------------------------------------------
 bool FatFile::contiguousRange(uint32_t* bgnSector, uint32_t* endSector) {
   // error if no clusters
-  if (!isFile() || m_firstCluster == 0) {
+  if (m_firstCluster == 0) {
     DBG_FAIL_MACRO;
     goto fail;
   }
@@ -148,7 +148,7 @@ bool FatFile::contiguousRange(uint32_t* bgnSector, uint32_t* endSector) {
     }
   }
 
- fail:
+fail:
   return false;
 }
 //------------------------------------------------------------------------------
@@ -161,7 +161,7 @@ bool FatFile::createContiguous(const char* path, uint32_t size) {
     return true;
   }
   close();
- fail:
+fail:
   return false;
 }
 //------------------------------------------------------------------------------
@@ -175,6 +175,33 @@ bool FatFile::createContiguous(FatFile* dirFile,
     return true;
   }
   close();
+fail:
+  return false;
+}
+//------------------------------------------------------------------------------
+bool FatFile::preAllocate(uint32_t length) {
+  uint32_t need;
+  if (!length || !isWritable() || m_firstCluster) {
+    DBG_FAIL_MACRO;
+    goto fail;
+  }
+  need = 1 + ((length - 1) >> m_vol->bytesPerClusterShift());
+  // allocate clusters
+  if (!m_vol->allocContiguous(need, &m_firstCluster)) {
+    DBG_FAIL_MACRO;
+    goto fail;
+  }
+  m_fileSize = length;
+
+#if USE_FAT_FILE_FLAG_CONTIGUOUS
+  // Mark contiguous and insure sync() will update dir entry
+  m_flags |= FILE_FLAG_PREALLOCATE | FILE_FLAG_CONTIGUOUS | FILE_FLAG_DIR_DIRTY;
+#else  // USE_FAT_FILE_FLAG_CONTIGUOUS
+  // insure sync() will update dir entry
+  m_flags |= FILE_FLAG_DIR_DIRTY;
+#endif  // USE_FAT_FILE_FLAG_CONTIGUOUS
+  return sync();
+
  fail:
   return false;
 }
@@ -187,7 +214,7 @@ bool FatFile::dirEntry(DirFat_t* dst) {
     goto fail;
   }
   // read entry
-  dir = cacheDirEntry(FsCache::CACHE_FOR_READ);
+  dir = cacheDirEntry(FatCache::CACHE_FOR_READ);
   if (!dir) {
     DBG_FAIL_MACRO;
     goto fail;
@@ -196,7 +223,7 @@ bool FatFile::dirEntry(DirFat_t* dst) {
   memcpy(dst, dir, sizeof(DirFat_t));
   return true;
 
- fail:
+fail:
   return false;
 }
 //------------------------------------------------------------------------------
@@ -248,7 +275,7 @@ int FatFile::fgets(char* str, int num, char* delim) {
   return n;
 }
 //------------------------------------------------------------------------------
-void FatFile::fgetpos(fspos_t* pos) const {
+void FatFile::fgetpos(fspos_t* pos) {
   pos->position = m_curPosition;
   pos->cluster = m_curCluster;
 }
@@ -262,53 +289,8 @@ void FatFile::fsetpos(const fspos_t* pos) {
   m_curCluster = pos->cluster;
 }
 //------------------------------------------------------------------------------
-bool FatFile::getAccessDate(uint16_t* pdate) {
-  DirFat_t dir;
-  if (!dirEntry(&dir)) {
-    DBG_FAIL_MACRO;
-    goto fail;
-  }
-  *pdate = getLe16(dir.accessDate);
-  return true;
-
- fail:
-  return false;
-}
-//------------------------------------------------------------------------------
-bool FatFile::getCreateDateTime(uint16_t* pdate, uint16_t* ptime) {
-  DirFat_t dir;
-  if (!dirEntry(&dir)) {
-    DBG_FAIL_MACRO;
-    goto fail;
-  }
-  *pdate = getLe16(dir.createDate);
-  *ptime = getLe16(dir.createTime);
-  return true;
-
- fail:
-  return false;
-}
-//------------------------------------------------------------------------------
-bool FatFile::getModifyDateTime(uint16_t* pdate, uint16_t* ptime) {
-  DirFat_t dir;
-  if (!dirEntry(&dir)) {
-    DBG_FAIL_MACRO;
-    goto fail;
-  }
-  *pdate = getLe16(dir.modifyDate);
-  *ptime = getLe16(dir.modifyTime);
-  return true;
-
- fail:
-  return false;
-}
-//------------------------------------------------------------------------------
-bool FatFile::isBusy() {
-  return m_vol->isBusy();
-}
-//------------------------------------------------------------------------------
 bool FatFile::mkdir(FatFile* parent, const char* path, bool pFlag) {
-  FatName_t fname;
+  fname_t fname;
   FatFile tmpDir;
 
   if (isOpen() || !parent->isDir()) {
@@ -345,11 +327,11 @@ bool FatFile::mkdir(FatFile* parent, const char* path, bool pFlag) {
   }
   return mkdir(parent, &fname);
 
- fail:
+fail:
   return false;
 }
 //------------------------------------------------------------------------------
-bool FatFile::mkdir(FatFile* parent, FatName_t* fname) {
+bool FatFile::mkdir(FatFile* parent, fname_t* fname) {
   uint32_t sector;
   DirFat_t dot;
   DirFat_t* dir;
@@ -382,12 +364,12 @@ bool FatFile::mkdir(FatFile* parent, FatName_t* fname) {
     goto fail;
   }
   // cache entry - should already be in cache due to sync() call
-  dir = cacheDirEntry(FsCache::CACHE_FOR_WRITE);
+  dir = cacheDirEntry(FatCache::CACHE_FOR_WRITE);
   if (!dir) {
     DBG_FAIL_MACRO;
     goto fail;
   }
-  // change directory entry attribute
+  // change directory entry  attribute
   dir->attributes = FAT_ATTRIB_DIRECTORY;
 
   // make entry for '.'
@@ -399,7 +381,7 @@ bool FatFile::mkdir(FatFile* parent, FatName_t* fname) {
 
   // cache sector for '.'  and '..'
   sector = m_vol->clusterStartSector(m_firstCluster);
-  pc = m_vol->cacheFetchData(sector, FsCache::CACHE_FOR_WRITE);
+  pc = m_vol->cacheFetchData(sector, FatCache::CACHE_FOR_WRITE);
   if (!pc) {
     DBG_FAIL_MACRO;
     goto fail;
@@ -415,10 +397,10 @@ bool FatFile::mkdir(FatFile* parent, FatName_t* fname) {
   // write first sector
   return m_vol->cacheSync();
 
- fail:
+fail:
   return false;
 }
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 bool FatFile::open(const char* path, oflag_t oflag) {
   return open(FatVolume::cwv(), path, oflag);
 }
@@ -429,7 +411,7 @@ bool FatFile::open(FatVolume* vol, const char* path, oflag_t oflag) {
 //------------------------------------------------------------------------------
 bool FatFile::open(FatFile* dirFile, const char* path, oflag_t oflag) {
   FatFile tmpDir;
-  FatName_t fname;
+  fname_t fname;
 
   // error if already open
   if (isOpen() || !dirFile->isDir()) {
@@ -458,7 +440,7 @@ bool FatFile::open(FatFile* dirFile, const char* path, oflag_t oflag) {
       break;
     }
     if (!open(dirFile, &fname, O_RDONLY)) {
-      DBG_WARN_MACRO;
+      DBG_FAIL_MACRO;
       goto fail;
     }
     tmpDir = *this;
@@ -467,7 +449,7 @@ bool FatFile::open(FatFile* dirFile, const char* path, oflag_t oflag) {
   }
   return open(dirFile, &fname, oflag);
 
- fail:
+fail:
   return false;
 }
 //------------------------------------------------------------------------------
@@ -477,7 +459,11 @@ bool FatFile::open(FatFile* dirFile, uint16_t index, oflag_t oflag) {
     DirLfn_t* ldir;
     uint8_t n = index < 20 ? index : 20;
     for (uint8_t i = 1; i <= n; i++) {
-      ldir = reinterpret_cast<DirLfn_t*>(dirFile->cacheDir(index - i));
+      if (!dirFile->seekSet(32UL*(index - i))) {
+        DBG_FAIL_MACRO;
+        goto fail;
+      }
+      ldir = reinterpret_cast<DirLfn_t*>(dirFile->readDirCache());
       if (!ldir) {
         DBG_FAIL_MACRO;
         goto fail;
@@ -588,22 +574,10 @@ bool FatFile::openCachedEntry(FatFile* dirFile, uint16_t dirIndex,
   }
   return true;
 
- fail:
+fail:
   m_attributes = FILE_ATTR_CLOSED;
   m_flags = 0;
   return false;
-}
-//------------------------------------------------------------------------------
-bool FatFile::openCluster(FatFile* file) {
-  if (file->m_dirCluster == 0) {
-    return openRoot(file->m_vol);
-  }
-  memset(this, 0, sizeof(FatFile));
-  m_attributes = FILE_ATTR_SUBDIR;
-  m_flags = FILE_FLAG_READ;
-  m_vol = file->m_vol;
-  m_firstCluster = file->m_dirCluster;
-  return true;
 }
 //------------------------------------------------------------------------------
 bool FatFile::openNext(FatFile* dirFile, oflag_t oflag) {
@@ -655,7 +629,7 @@ bool FatFile::openNext(FatFile* dirFile, oflag_t oflag) {
     }
   }
 
- fail:
+fail:
   return false;
 }
 //------------------------------------------------------------------------------
@@ -688,7 +662,7 @@ bool FatFile::openRoot(FatVolume* vol) {
   m_flags = FILE_FLAG_READ;
   return true;
 
- fail:
+fail:
   return false;
 }
 //------------------------------------------------------------------------------
@@ -699,33 +673,6 @@ int FatFile::peek() {
   m_curPosition = curPosition;
   m_curCluster = curCluster;
   return c;
-}
-//------------------------------------------------------------------------------
-bool FatFile::preAllocate(uint32_t length) {
-  uint32_t need;
-  if (!length || !isWritable() || m_firstCluster) {
-    DBG_FAIL_MACRO;
-    goto fail;
-  }
-  need = 1 + ((length - 1) >> m_vol->bytesPerClusterShift());
-  // allocate clusters
-  if (!m_vol->allocContiguous(need, &m_firstCluster)) {
-    DBG_FAIL_MACRO;
-    goto fail;
-  }
-  m_fileSize = length;
-
-#if USE_FAT_FILE_FLAG_CONTIGUOUS
-  // Mark contiguous and insure sync() will update dir entry
-  m_flags |= FILE_FLAG_PREALLOCATE | FILE_FLAG_CONTIGUOUS | FILE_FLAG_DIR_DIRTY;
-#else  // USE_FAT_FILE_FLAG_CONTIGUOUS
-  // insure sync() will update dir entry
-  m_flags |= FILE_FLAG_DIR_DIRTY;
-#endif  // USE_FAT_FILE_FLAG_CONTIGUOUS
-  return sync();
-
- fail:
-  return false;
 }
 //------------------------------------------------------------------------------
 int FatFile::read(void* buf, size_t nbyte) {
@@ -798,7 +745,7 @@ int FatFile::read(void* buf, size_t nbyte) {
         n = toRead;
       }
       // read sector to cache and copy data to caller
-      pc = m_vol->cacheFetchData(sector, FsCache::CACHE_FOR_READ);
+      pc = m_vol->cacheFetchData(sector, FatCache::CACHE_FOR_READ);
       if (!pc) {
         DBG_FAIL_MACRO;
         goto fail;
@@ -815,7 +762,16 @@ int FatFile::read(void* buf, size_t nbyte) {
         }
       }
       n = ns << m_vol->bytesPerSectorShift();
-      if (!m_vol->cacheSafeRead(sector, dst, ns)) {
+      // Check for cache sector in read range.
+      if (sector <= m_vol->cacheSectorNumber()
+          && sector < (m_vol->cacheSectorNumber() + ns)) {
+        // Flush cache if cache sector is in the range.
+        if (!m_vol->cacheSyncData()) {
+          DBG_FAIL_MACRO;
+          goto fail;
+        }
+      }
+      if (!m_vol->readSectors(sector, dst, ns)) {
         DBG_FAIL_MACRO;
         goto fail;
       }
@@ -823,7 +779,7 @@ int FatFile::read(void* buf, size_t nbyte) {
     } else {
       // read single sector
       n = m_vol->bytesPerSector();
-      if (!m_vol->cacheSafeRead(sector, dst)) {
+      if (!m_vol->readSector(sector, dst)) {
         DBG_FAIL_MACRO;
         goto fail;
       }
@@ -834,7 +790,7 @@ int FatFile::read(void* buf, size_t nbyte) {
   }
   return nbyte - toRead;
 
- fail:
+fail:
   m_error |= READ_ERROR;
   return -1;
 }
@@ -866,10 +822,9 @@ int8_t FatFile::readDir(DirFat_t* dir) {
   }
 }
 //------------------------------------------------------------------------------
-// Read next directory entry into the cache.
-// Assumes file is correctly positioned.
+// Read next directory entry into the cache
+// Assumes file is correctly positioned
 DirFat_t* FatFile::readDirCache(bool skipReadOk) {
-  DBG_HALT_IF(m_curPosition & 0X1F);
   uint8_t i = (m_curPosition >> 5) & 0XF;
 
   if (i == 0 || !skipReadOk) {
@@ -887,7 +842,7 @@ DirFat_t* FatFile::readDirCache(bool skipReadOk) {
   // return pointer to entry
   return reinterpret_cast<DirFat_t*>(m_vol->cacheAddress()) + i;
 
- fail:
+fail:
   return nullptr;
 }
 //------------------------------------------------------------------------------
@@ -899,7 +854,7 @@ bool FatFile::remove(const char* path) {
   }
   return file.remove();
 
- fail:
+fail:
   return false;
 }
 //------------------------------------------------------------------------------
@@ -933,7 +888,7 @@ bool FatFile::rename(FatFile* dirFile, const char* newPath) {
   // sync() and cache directory entry
   sync();
   oldFile = *this;
-  dir = cacheDirEntry(FsCache::CACHE_FOR_READ);
+  dir = cacheDirEntry(FatCache::CACHE_FOR_READ);
   if (!dir) {
     DBG_FAIL_MACRO;
     goto fail;
@@ -966,7 +921,7 @@ bool FatFile::rename(FatFile* dirFile, const char* newPath) {
   file.m_flags = 0;
 
   // cache new directory entry
-  dir = cacheDirEntry(FsCache::CACHE_FOR_WRITE);
+  dir = cacheDirEntry(FatCache::CACHE_FOR_WRITE);
   if (!dir) {
     DBG_FAIL_MACRO;
     goto fail;
@@ -980,7 +935,7 @@ bool FatFile::rename(FatFile* dirFile, const char* newPath) {
   if (dirCluster) {
     // get new dot dot
     uint32_t sector = m_vol->clusterStartSector(dirCluster);
-    pc = m_vol->cacheFetchData(sector, FsCache::CACHE_FOR_READ);
+    pc = m_vol->cacheFetchData(sector, FatCache::CACHE_FOR_READ);
     if (!pc) {
       DBG_FAIL_MACRO;
       goto fail;
@@ -994,7 +949,7 @@ bool FatFile::rename(FatFile* dirFile, const char* newPath) {
     }
     // store new dot dot
     sector = m_vol->clusterStartSector(m_firstCluster);
-    pc = m_vol->cacheFetchData(sector, FsCache::CACHE_FOR_WRITE);
+    pc = m_vol->cacheFetchData(sector, FatCache::CACHE_FOR_WRITE);
     if (!pc) {
       DBG_FAIL_MACRO;
       goto fail;
@@ -1011,7 +966,7 @@ bool FatFile::rename(FatFile* dirFile, const char* newPath) {
   }
   return m_vol->cacheSync();
 
- fail:
+fail:
   return false;
 }
 //------------------------------------------------------------------------------
@@ -1053,7 +1008,7 @@ bool FatFile::rmdir() {
   m_flags |= FILE_FLAG_WRITE;
   return remove();
 
- fail:
+fail:
   return false;
 }
 //------------------------------------------------------------------------------
@@ -1128,7 +1083,7 @@ bool FatFile::rmRfStar() {
   }
   return true;
 
- fail:
+fail:
   return false;
 }
 //------------------------------------------------------------------------------
@@ -1162,16 +1117,9 @@ bool FatFile::seekSet(uint32_t pos) {
     DBG_FAIL_MACRO;
     goto fail;
   }
-  // calculate cluster index for new position
-  nNew = (pos - 1) >> (m_vol->bytesPerClusterShift());
-#if USE_FAT_FILE_FLAG_CONTIGUOUS
-  if (isContiguous()) {
-    m_curCluster = m_firstCluster + nNew;
-    goto done;
-  }
-#endif  // USE_FAT_FILE_FLAG_CONTIGUOUS
-  // calculate cluster index for current position
+  // calculate cluster index for cur and new position
   nCur = (m_curPosition - 1) >> (m_vol->bytesPerClusterShift());
+  nNew = (pos - 1) >> (m_vol->bytesPerClusterShift());
 
   if (nNew < nCur || m_curPosition == 0) {
     // must follow chain from first cluster
@@ -1187,12 +1135,12 @@ bool FatFile::seekSet(uint32_t pos) {
     }
   }
 
- done:
+done:
   m_curPosition = pos;
   m_flags &= ~FILE_FLAG_PREALLOCATE;
   return true;
 
- fail:
+fail:
   m_curCluster = tmp;
   return false;
 }
@@ -1204,7 +1152,7 @@ bool FatFile::sync() {
     return true;
   }
   if (m_flags & FILE_FLAG_DIR_DIRTY) {
-    DirFat_t* dir = cacheDirEntry(FsCache::CACHE_FOR_WRITE);
+    DirFat_t* dir = cacheDirEntry(FatCache::CACHE_FOR_WRITE);
     // check for deleted by another open file object
     if (!dir || dir->name[0] == FAT_NAME_DELETED) {
       DBG_FAIL_MACRO;
@@ -1214,6 +1162,7 @@ bool FatFile::sync() {
     if (isFile()) {
       setLe32(dir->fileSize, m_fileSize);
     }
+
     // update first cluster fields
     setLe16(dir->firstClusterLow, m_firstCluster & 0XFFFF);
     setLe16(dir->firstClusterHigh, m_firstCluster >> 16);
@@ -1233,7 +1182,7 @@ bool FatFile::sync() {
   }
   DBG_FAIL_MACRO;
 
- fail:
+fail:
   m_error |= WRITE_ERROR;
   return false;
 }
@@ -1262,7 +1211,7 @@ bool FatFile::timestamp(uint8_t flags, uint16_t year, uint8_t month,
     DBG_FAIL_MACRO;
     goto fail;
   }
-  dir = cacheDirEntry(FsCache::CACHE_FOR_WRITE);
+  dir = cacheDirEntry(FatCache::CACHE_FOR_WRITE);
   if (!dir) {
     DBG_FAIL_MACRO;
     goto fail;
@@ -1284,7 +1233,7 @@ bool FatFile::timestamp(uint8_t flags, uint16_t year, uint8_t month,
   }
   return m_vol->cacheSync();
 
- fail:
+fail:
   return false;
 }
 //------------------------------------------------------------------------------
@@ -1326,7 +1275,12 @@ bool FatFile::truncate() {
 
   // need to update directory entry
   m_flags |= FILE_FLAG_DIR_DIRTY;
-  return sync();
+
+  if (!sync()) {
+    DBG_FAIL_MACRO;
+    goto fail;
+  }
+  return true;
 
  fail:
   return false;
@@ -1418,10 +1372,10 @@ size_t FatFile::write(const void* buf, size_t nbyte) {
       if (sectorOffset == 0 &&
          (m_curPosition >= m_fileSize || m_flags & FILE_FLAG_PREALLOCATE)) {
         // start of new sector don't need to read into cache
-        cacheOption = FsCache::CACHE_RESERVE_FOR_WRITE;
+        cacheOption = FatCache::CACHE_RESERVE_FOR_WRITE;
       } else {
         // rewrite part of sector
-        cacheOption = FsCache::CACHE_FOR_WRITE;
+        cacheOption = FatCache::CACHE_FOR_WRITE;
       }
       pc = m_vol->cacheFetchData(sector, cacheOption);
       if (!pc) {
@@ -1446,7 +1400,13 @@ size_t FatFile::write(const void* buf, size_t nbyte) {
         nSector = maxSectors;
       }
       n = nSector << m_vol->bytesPerSectorShift();
-      if (!m_vol->cacheSafeWrite(sector, src, nSector)) {
+      // Check for cache sector in write range.
+      if (sector <= m_vol->cacheSectorNumber()
+          && sector < (m_vol->cacheSectorNumber() + nSector)) {
+        // Invalidate cache if cache sector is in the range.
+        m_vol->cacheInvalidate();
+      }
+      if (!m_vol->writeSectors(sector, src, nSector)) {
         DBG_FAIL_MACRO;
         goto fail;
       }
@@ -1454,7 +1414,10 @@ size_t FatFile::write(const void* buf, size_t nbyte) {
     } else {
       // use single sector write command
       n = m_vol->bytesPerSector();
-      if (!m_vol->cacheSafeWrite(sector, src)) {
+      if (m_vol->cacheSectorNumber() == sector) {
+        m_vol->cacheInvalidate();
+      }
+      if (!m_vol->writeSector(sector, src)) {
         DBG_FAIL_MACRO;
         goto fail;
       }
@@ -1473,8 +1436,8 @@ size_t FatFile::write(const void* buf, size_t nbyte) {
   }
   return nbyte;
 
- fail:
+fail:
   // return for write error
   m_error |= WRITE_ERROR;
-  return 0;
+  return -1;
 }

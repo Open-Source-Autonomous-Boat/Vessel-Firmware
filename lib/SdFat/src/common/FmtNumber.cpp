@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Bill Greiman
+ * Copyright (c) 2011-2019 Bill Greiman
  * This file is part of the SdFat library for SD memory cards.
  *
  * MIT License
@@ -511,6 +511,6 @@ float scanFloat(const char* str, const char** ptr) {
   v = scale10(static_cast<float>(fract), fracExp);
   return neg ? -v : v;
 
- fail:
+fail:
   return 0;
 }

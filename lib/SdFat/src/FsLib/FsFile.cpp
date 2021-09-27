@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Bill Greiman
+ * Copyright (c) 2011-2019 Bill Greiman
  * This file is part of the SdFat library for SD memory cards.
  *
  * MIT License
@@ -90,6 +90,7 @@ bool FsBaseFile::open(FsVolume* vol, const char* path, oflag_t oflag) {
       return true;
     }
     m_fFile = nullptr;
+    return false;
   } else if (vol->m_xVol) {
     m_xFile = new (m_fileMem) ExFatFile;
     if (m_xFile && m_xFile->open(vol->m_xVol, path, oflag)) {
@@ -147,27 +148,6 @@ bool FsBaseFile::openNext(FsBaseFile* dir, oflag_t oflag) {
   } else if (dir->m_xFile) {
     m_xFile = new (m_fileMem) ExFatFile;
     if (m_xFile->openNext(dir->m_xFile, oflag)) {
-      return true;
-    }
-    m_xFile = nullptr;
-  }
-  return false;
-}
-//------------------------------------------------------------------------------
-bool FsBaseFile::openRoot(FsVolume* vol) {
-  if (!vol) {
-    return false;
-  }
-  close();
-  if (vol->m_fVol) {
-    m_fFile = new (m_fileMem) FatFile;
-    if (m_fFile && m_fFile->openRoot(vol->m_fVol)) {
-      return true;
-    }
-    m_fFile = nullptr;
-  } else if (vol->m_xVol) {
-    m_xFile = new (m_fileMem) ExFatFile;
-    if (m_xFile && m_xFile->openRoot(vol->m_xVol)) {
       return true;
     }
     m_xFile = nullptr;

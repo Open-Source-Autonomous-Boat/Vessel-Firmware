@@ -13,13 +13,15 @@ This is the firmware that runs on the main teensy 4.1 board.
 
 ## Dependencies
 
+**Note:** any library forked by [PaulStoffrege](https://github.com/PaulStoffregen) is required to be the forked version for Teensy compatibility reasons.
+
 - [adafruit/Adafruit_LSM303DLHC](https://github.com/adafruit/Adafruit_LSM303DLHC) **Might be replaced by `adafruit/Adafruit_LSM303_Accel` and `adafruit/Adafruit_LSM303DLH_Mag`*
 - [adafruit/Adafruit_Sensor](https://github.com/adafruit/Adafruit_Sensor)
 - [bblanchon/ArduinoJson](https://github.com/bblanchon/ArduinoJson)
 - [Open-Source-Autonomous-Boat/NavTools](https://github.com/Open-Source-Autonomous-Boat/NavTools)
 - [PaulStoffregen/PWMServo](https://github.com/PaulStoffregen/PWMServo) **Included in Teensyduino*
 - [adafruit/RTClib](https://github.com/adafruit/RTClib) **Will be replaced by `PaulStoffregen/Time` soon.*
-- [greiman/SdFat](https://github.com/greiman/SdFat)
+- [PaulStoffregen/SdFat-beta](https://github.com/PaulStoffregen/SdFat-beta) **Note:** You have to rename the library folder to `SdFat`.
 - [PaulStoffregen/SPI](https://github.com/PaulStoffregen/SPI) **Included in Teensyduino*
 - [joysfera/arduino-tasker](https://github.com/joysfera/arduino-tasker)
 - [mikalhart/TinyGPSPlus](https://github.com/mikalhart/TinyGPSPlus)

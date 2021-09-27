@@ -21,7 +21,7 @@ class MySpiClass : public SdSpiBaseClass {
   }
   // Initialize the SPI bus.
   void begin(SdSpiConfig config) {
-    (void)config;
+    (void)config; 
     SPI.begin();
   }
   // Deactivate SPI hardware.
@@ -32,7 +32,7 @@ class MySpiClass : public SdSpiBaseClass {
   uint8_t receive() {
     return SPI.transfer(0XFF);
   }
-  // Receive multiple bytes.
+  // Receive multiple bytes.  
   // Replace this function if your board has multiple byte receive.
   uint8_t receive(uint8_t* buf, size_t count) {
     for (size_t i = 0; i < count; i++) {
@@ -59,11 +59,8 @@ class MySpiClass : public SdSpiBaseClass {
  private:
   SPISettings m_spiSettings;
 } mySpi;
-#if ENABLE_DEDICATED_SPI
+
 #define SD_CONFIG SdSpiConfig(SD_CS_PIN, DEDICATED_SPI, SD_SCK_MHZ(50), &mySpi)
-#else  // ENABLE_DEDICATED_SPI
-#define SD_CONFIG SdSpiConfig(SD_CS_PIN, SHARED_SPI, SD_SCK_MHZ(50), &mySpi)
-#endif  // ENABLE_DEDICATED_SPI
 SdFat sd;
 
 //------------------------------------------------------------------------------

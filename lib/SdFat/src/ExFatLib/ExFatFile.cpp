@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Bill Greiman
+ * Copyright (c) 2011-2019 Bill Greiman
  * This file is part of the SdFat library for SD memory cards.
  *
  * MIT License
@@ -24,32 +24,10 @@
  */
 #define DBG_FILE "ExFatFile.cpp"
 #include "../common/DebugMacros.h"
-#include "../common/FsUtf.h"
 #include "ExFatFile.h"
 #include "ExFatVolume.h"
-//------------------------------------------------------------------------------
-/** test for legal character.
- *
- * \param[in] c character to be tested.
- *
- * \return true for legal character else false.
- */
-inline bool lfnLegalChar(uint8_t c) {
-#if USE_UTF8_LONG_NAMES
-  return !lfnReservedChar(c);
-#else  // USE_UTF8_LONG_NAMES
-  return !(lfnReservedChar(c) || c & 0X80);
-#endif  // USE_UTF8_LONG_NAMES
-}
-//------------------------------------------------------------------------------
-uint8_t* ExFatFile::dirCache(uint8_t set, uint8_t options) {
-  DirPos_t pos = m_dirPos;
-  if (m_vol->dirSeek(&pos, 32*set) != 1) {
-    return nullptr;
-  }
-  return m_vol->dirCache(&pos, options);
-}
-//------------------------------------------------------------------------------
+#include "upcase.h"
+//-----------------------------------------------------------------------------
 bool ExFatFile::close() {
   bool rtn = sync();
   m_attributes = FILE_ATTR_CLOSED;
@@ -57,21 +35,7 @@ bool ExFatFile::close() {
   return rtn;
 }
 //------------------------------------------------------------------------------
-bool ExFatFile::contiguousRange(uint32_t* bgnSector, uint32_t* endSector) {
-  if (!isContiguous()) {
-    return false;
-  }
-  if (bgnSector) {
-    *bgnSector = firstSector();
-  }
-  if (endSector) {
-    *endSector = firstSector() +
-                 ((m_validLength - 1) >> m_vol->bytesPerSectorShift());
-  }
-  return true;
-}
-//------------------------------------------------------------------------------
-void ExFatFile::fgetpos(fspos_t* pos) const {
+void ExFatFile::fgetpos(fspos_t* pos) {
   pos->position = m_curPosition;
   pos->cluster = m_curCluster;
 }
@@ -104,73 +68,56 @@ int ExFatFile::fgets(char* str, int num, char* delim) {
   return n;
 }
 //------------------------------------------------------------------------------
-uint32_t ExFatFile::firstSector() const {
-  return m_firstCluster ? m_vol->clusterStartSector(m_firstCluster) : 0;
-}
-//------------------------------------------------------------------------------
 void ExFatFile::fsetpos(const fspos_t* pos) {
   m_curPosition = pos->position;
   m_curCluster = pos->cluster;
 }
-//------------------------------------------------------------------------------
-bool ExFatFile::getAccessDateTime(uint16_t* pdate, uint16_t* ptime) {
-  DirFile_t* df = reinterpret_cast<DirFile_t*>
-                 (m_vol->dirCache(&m_dirPos, FsCache::CACHE_FOR_READ));
-  if (!df) {
-    DBG_FAIL_MACRO;
-    goto fail;
+//-----------------------------------------------------------------------------
+size_t ExFatFile::getName(ExChar_t *name, size_t length) {
+  DirName_t* dn;
+  DirPos_t pos = m_dirPos;
+  size_t n = 0;
+  if (!isOpen()) {
+      DBG_FAIL_MACRO;
+      goto fail;
   }
-  *pdate = getLe16(df->accessDate);
-  *ptime = getLe16(df->accessTime);
-  return true;
+  for (uint8_t is = 1; is < m_setCount; is++) {
+    if (m_vol->dirSeek(&pos, is == 1 ? 64: 32) != 1) {
+      DBG_FAIL_MACRO;
+      goto fail;
+    }
+    dn = reinterpret_cast<DirName_t*>
+         (m_vol->dirCache(&pos, FsCache::CACHE_FOR_READ));
+    if (!dn || dn->type != EXFAT_TYPE_NAME) {
+      DBG_FAIL_MACRO;
+      goto fail;
+    }
+    for (uint8_t in = 0; in < 15; in++) {
+      if ((n + 1) >= length) {
+        goto done;
+      }
+      uint16_t c = getLe16(dn->unicode + 2*in);
+      name[n++] = sizeof(ExChar_t) > 1 || c < 0X7F ? c : '?';
+    }
+  }
+ done:
+  name[n] = 0;
+  return n;
 
  fail:
-  return false;
+  *name = 0;
+  return 0;
 }
-//------------------------------------------------------------------------------
-bool ExFatFile::getCreateDateTime(uint16_t* pdate, uint16_t* ptime) {
-  DirFile_t* df = reinterpret_cast<DirFile_t*>
-                 (m_vol->dirCache(&m_dirPos, FsCache::CACHE_FOR_READ));
-  if (!df) {
-    DBG_FAIL_MACRO;
-    goto fail;
-  }
-  *pdate = getLe16(df->createDate);
-  *ptime = getLe16(df->createTime);
-  return true;
-
- fail:
-  return false;
-}
-//------------------------------------------------------------------------------
-bool ExFatFile::getModifyDateTime(uint16_t* pdate, uint16_t* ptime) {
-  DirFile_t* df = reinterpret_cast<DirFile_t*>
-                 (m_vol->dirCache(&m_dirPos, FsCache::CACHE_FOR_READ));
-  if (!df) {
-    DBG_FAIL_MACRO;
-    goto fail;
-  }
-  *pdate = getLe16(df->modifyDate);
-  *ptime = getLe16(df->modifyTime);
-  return true;
-
- fail:
-  return false;
-}
-//------------------------------------------------------------------------------
-bool ExFatFile::isBusy() {
-  return m_vol->isBusy();
-}
-//------------------------------------------------------------------------------
-bool ExFatFile::open(const char* path, oflag_t oflag) {
+//-----------------------------------------------------------------------------
+bool ExFatFile::open(const ExChar_t* path, int oflag) {
   return open(ExFatVolume::cwv(), path, oflag);
 }
-//------------------------------------------------------------------------------
-bool ExFatFile::open(ExFatVolume* vol, const char* path, oflag_t oflag) {
+//-----------------------------------------------------------------------------
+bool ExFatFile::open(ExFatVolume* vol, const ExChar_t* path, int oflag) {
   return vol && open(vol->vwd(), path, oflag);
 }
 //------------------------------------------------------------------------------
-bool ExFatFile::open(ExFatFile* dirFile, const char* path, oflag_t oflag) {
+bool ExFatFile::open(ExFatFile* dirFile, const ExChar_t* path, oflag_t oflag) {
   ExFatFile tmpDir;
   ExName_t fname;
   // error if already open
@@ -199,17 +146,17 @@ bool ExFatFile::open(ExFatFile* dirFile, const char* path, oflag_t oflag) {
     if (*path == 0) {
       break;
     }
-    if (!openPrivate(dirFile, &fname, O_RDONLY)) {
-      DBG_WARN_MACRO;
+    if (!open(dirFile, &fname, O_RDONLY)) {
+      DBG_FAIL_MACRO;
       goto fail;
     }
     tmpDir = *this;
     dirFile = &tmpDir;
     close();
   }
-  return openPrivate(dirFile, &fname, oflag);
+  return open(dirFile, &fname, oflag);
 
- fail:
+fail:
   return false;
 }
 //------------------------------------------------------------------------------
@@ -223,21 +170,25 @@ bool ExFatFile::open(ExFatFile* dirFile, uint32_t index, oflag_t oflag) {
   }
   return false;
 }
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 bool ExFatFile::openNext(ExFatFile* dir, oflag_t oflag) {
   if (isOpen() || !dir->isDir() || (dir->curPosition() & 0X1F)) {
     DBG_FAIL_MACRO;
     goto fail;
   }
-  return openPrivate(dir, nullptr, oflag);
+  return openRootFile(dir, nullptr, 0, oflag);
 
  fail:
   return false;
 }
 //------------------------------------------------------------------------------
-bool ExFatFile::openPrivate(ExFatFile* dir, ExName_t* fname, oflag_t oflag) {
+bool ExFatFile::openRootFile(ExFatFile* dir, const ExChar_t* name,
+                          uint8_t nameLength, oflag_t oflag) {
   int n;
+  uint8_t nameOffset = 0;
+  uint8_t nCmp;
   uint8_t modeFlags;
+  uint16_t nameHash = 0;
   uint32_t curCluster __attribute__((unused));
   uint8_t* cache __attribute__((unused));
   DirPos_t freePos __attribute__((unused));
@@ -247,15 +198,14 @@ bool ExFatFile::openPrivate(ExFatFile* dir, ExName_t* fname, oflag_t oflag) {
   DirName_t*   dirName;
   uint8_t buf[32];
   uint8_t freeCount = 0;
-  uint8_t freeNeed = 3;
+  uint8_t freeNeed;
   bool inSet = false;
 
-  // error if already open, no access mode, or no directory.
+  // error if already open
   if (isOpen() || !dir->isDir()) {
     DBG_FAIL_MACRO;
     goto fail;
   }
-
   switch (oflag & O_ACCMODE) {
     case O_RDONLY:
       modeFlags = FILE_FLAG_READ;
@@ -271,11 +221,11 @@ bool ExFatFile::openPrivate(ExFatFile* dir, ExName_t* fname, oflag_t oflag) {
       goto fail;
   }
   modeFlags |= oflag & O_APPEND ? FILE_FLAG_APPEND : 0;
-
-  if (fname) {
-    freeNeed = 2 + (fname->nameLength + 14)/15;
+  if (name) {
+    nameHash = exFatHashName(name, nameLength, 0);
     dir->rewind();
   }
+  freeNeed = 2 + (nameLength + 14)/15;
 
   while (1) {
     n = dir->read(buf, 32);
@@ -287,7 +237,6 @@ bool ExFatFile::openPrivate(ExFatFile* dir, ExName_t* fname, oflag_t oflag) {
       goto fail;
     }
     if (!(buf[0] & 0x80)) {
-      // Unused entry.
       if (freeCount == 0) {
         freePos.position = dir->curPosition() - 32;
         freePos.cluster = dir->curCluster();
@@ -296,14 +245,8 @@ bool ExFatFile::openPrivate(ExFatFile* dir, ExName_t* fname, oflag_t oflag) {
         freeCount++;
       }
       if (!buf[0]) {
-        if (fname) {
-          goto create;
-        }
-        // Likely openNext call.
-        DBG_WARN_MACRO;
-        goto fail;
+        goto create;
       }
-      inSet = false;
     } else if (!inSet) {
       if (freeCount < freeNeed) {
         freeCount = 0;
@@ -312,45 +255,62 @@ bool ExFatFile::openPrivate(ExFatFile* dir, ExName_t* fname, oflag_t oflag) {
         continue;
       }
       inSet = true;
-      memset(this, 0, sizeof(ExFatFile));
-      dirFile = reinterpret_cast<DirFile_t*>(buf);
-      m_setCount = dirFile->setCount;
-      m_attributes = getLe16(dirFile->attributes) & FILE_ATTR_COPY;
-      if (!(m_attributes & EXFAT_ATTRIB_DIRECTORY)) {
-        m_attributes |= FILE_ATTR_FILE;
-      }
-      m_vol = dir->volume();
-      m_dirPos.cluster = dir->curCluster();
-      m_dirPos.position = dir->curPosition() - 32;
-      m_dirPos.isContiguous = dir->isContiguous();
-    } else if (buf[0] == EXFAT_TYPE_STREAM) {
-      dirStream = reinterpret_cast<DirStream_t*>(buf);
-      m_flags = modeFlags;
-      if (dirStream->flags & EXFAT_FLAG_CONTIGUOUS) {
-        m_flags |= FILE_FLAG_CONTIGUOUS;
-      }
-      m_validLength = getLe64(dirStream->validLength);
-      m_firstCluster = getLe32(dirStream->firstCluster);
-      m_dataLength = getLe64(dirStream->dataLength);
-      if (!fname) {
-        goto found;
-      }
-      fname->reset();
-      if (fname->nameLength != dirStream->nameLength ||
-          fname->nameHash != getLe16(dirStream->nameHash)) {
-        inSet = false;
-      }
-    } else if (buf[0] == EXFAT_TYPE_NAME) {
-      dirName = reinterpret_cast<DirName_t*>(buf);
-      if (!cmpName(dirName, fname)) {
-        inSet = false;
-        continue;
-      }
-      if (fname->atEnd()) {
-        goto found;
-      }
-    } else {
-      inSet = false;
+    }
+    switch (buf[0]) {
+      case EXFAT_TYPE_FILE:
+        memset(this, 0, sizeof(ExFatFile));
+        dirFile = reinterpret_cast<DirFile_t*>(buf);
+        m_setCount = dirFile->setCount;
+        m_attributes = getLe16(dirFile->attributes) & FILE_ATTR_COPY;
+        if (!(m_attributes & EXFAT_ATTRIB_DIRECTORY)) {
+          m_attributes |= FILE_ATTR_FILE;
+        }
+        m_vol = dir->volume();
+
+        m_dirPos.cluster = dir->curCluster();
+        m_dirPos.position = dir->curPosition() - 32;
+        m_dirPos.isContiguous = dir->isContiguous();
+        break;
+
+      case EXFAT_TYPE_STREAM:
+        dirStream = reinterpret_cast<DirStream_t*>(buf);
+        m_flags = modeFlags;
+        if (dirStream->flags & EXFAT_FLAG_CONTIGUOUS) {
+          m_flags |= FILE_FLAG_CONTIGUOUS;
+        }
+        nameOffset = 0;
+        m_validLength = getLe64(dirStream->validLength);
+        m_firstCluster = getLe32(dirStream->firstCluster);
+        m_dataLength = getLe64(dirStream->dataLength);
+        if (!name) {
+          goto found;
+        }
+        if (nameLength != dirStream->nameLength ||
+            nameHash != getLe16(dirStream->nameHash)) {
+          inSet = false;
+          break;
+        }
+        break;
+
+      case EXFAT_TYPE_NAME:
+        dirName = reinterpret_cast<DirName_t*>(buf);
+        nCmp = nameLength - nameOffset;
+        if (nCmp > 15) {
+          nCmp = 15;
+        }
+        if (!exFatCmpName(dirName, name, nameOffset, nCmp)) {
+          inSet = false;
+          break;
+        }
+        nameOffset += nCmp;
+
+        if (nameOffset == nameLength) {
+          goto found;
+        }
+        break;
+
+      default:
+        break;
     }
   }
 
@@ -382,7 +342,7 @@ bool ExFatFile::openPrivate(ExFatFile* dir, ExName_t* fname, oflag_t oflag) {
     DBG_FAIL_MACRO;
     goto fail;
   }
-#endif  // !READ_ONLY
+#endif  // READ_ONLY
   return true;
 
  create:
@@ -391,8 +351,8 @@ bool ExFatFile::openPrivate(ExFatFile* dir, ExName_t* fname, oflag_t oflag) {
   goto fail;
 #else  // READ_ONLY
   // don't create unless O_CREAT and write
-  if (!(oflag & O_CREAT) || !(modeFlags & FILE_FLAG_WRITE) || !fname) {
-    DBG_WARN_MACRO;
+  if (!(oflag & O_CREAT) || !(modeFlags & FILE_FLAG_WRITE) || !name) {
+    DBG_FAIL_MACRO;
     goto fail;
   }
   while (freeCount < freeNeed) {
@@ -416,14 +376,20 @@ bool ExFatFile::openPrivate(ExFatFile* dir, ExName_t* fname, oflag_t oflag) {
     }
     freeCount++;
   }
+
   freePos.isContiguous = dir->isContiguous();
   memset(this, 0, sizeof(ExFatFile));
   m_vol = dir->volume();
   m_attributes = FILE_ATTR_FILE;
   m_dirPos = freePos;
-  fname->reset();
   for (uint8_t i = 0; i < freeNeed; i++) {
-    cache = dirCache(i, FsCache::CACHE_FOR_WRITE);
+    if (i) {
+      if (1 != m_vol->dirSeek(&freePos, 32)) {
+        DBG_FAIL_MACRO;
+        goto fail;
+      }
+    }
+    cache = m_vol->dirCache(&freePos, FsCache::CACHE_FOR_WRITE);
     if (!cache || (cache[0] & 0x80)) {
       DBG_FAIL_MACRO;
       goto fail;
@@ -434,53 +400,45 @@ bool ExFatFile::openPrivate(ExFatFile* dir, ExName_t* fname, oflag_t oflag) {
       dirFile->type = EXFAT_TYPE_FILE;
       m_setCount = freeNeed - 1;
       dirFile->setCount = m_setCount;
-
       if (FsDateTime::callback) {
         uint16_t date, time;
         uint8_t ms10;
         FsDateTime::callback(&date, &time, &ms10);
-        setLe16(dirFile->createDate, date);
-        setLe16(dirFile->createTime, time);
         dirFile->createTimeMs = ms10;
-      } else {
-        setLe16(dirFile->createDate, FS_DEFAULT_DATE);
-        setLe16(dirFile->modifyDate, FS_DEFAULT_DATE);
-        setLe16(dirFile->accessDate, FS_DEFAULT_DATE);
-       if (FS_DEFAULT_TIME) {
-         setLe16(dirFile->createTime, FS_DEFAULT_TIME);
-         setLe16(dirFile->modifyTime, FS_DEFAULT_TIME);
-         setLe16(dirFile->accessTime, FS_DEFAULT_TIME);
-       }
+        setLe16(dirFile->createTime, time);
+        setLe16(dirFile->createDate, date);
       }
     } else if (i == 1) {
       dirStream = reinterpret_cast<DirStream_t*>(cache);
       dirStream->type = EXFAT_TYPE_STREAM;
-      dirStream->flags = EXFAT_FLAG_ALWAYS1;
-      m_flags = modeFlags | FILE_FLAG_DIR_DIRTY;
-      dirStream->nameLength = fname->nameLength;
-      setLe16(dirStream->nameHash, fname->nameHash);
+      dirStream->flags = EXFAT_FLAG_ALWAYS1 | EXFAT_FLAG_CONTIGUOUS;
+      m_flags = modeFlags | FILE_FLAG_CONTIGUOUS | FILE_FLAG_DIR_DIRTY;
+
+      dirStream->nameLength = nameLength;
+      setLe16(dirStream->nameHash, nameHash);
     } else {
       dirName = reinterpret_cast<DirName_t*>(cache);
       dirName->type = EXFAT_TYPE_NAME;
-      for (size_t k = 0; k < 15; k++) {
-        if (fname->atEnd()) {
-          break;
-        }
-        uint16_t u = fname->get16();
-        setLe16(dirName->unicode + 2*k, u);
+      nameOffset = 15*(i - 2);
+      nCmp = nameLength - nameOffset;
+      if (nCmp > 15) {
+        nCmp = 15;
+      }
+      for (size_t k = 0; k < nCmp; k++) {
+        setLe16(dirName->unicode + 2*k, name[k + nameOffset]);
       }
     }
   }
   return sync();
 #endif  // READ_ONLY
-
  fail:
+
   // close file
   m_attributes = FILE_ATTR_CLOSED;
   m_flags = 0;
   return false;
 }
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 bool ExFatFile::openRoot(ExFatVolume* vol) {
   if (isOpen()) {
     DBG_FAIL_MACRO;
@@ -496,34 +454,47 @@ bool ExFatFile::openRoot(ExFatVolume* vol) {
   return false;
 }
 //------------------------------------------------------------------------------
-bool ExFatFile::parsePathName(const char* path,
-                            ExName_t* fname, const char** ptr) {
+bool ExFatFile::parsePathName(const ExChar_t* path,
+                            ExName_t* fname, const ExChar_t** ptr) {
+  ExChar_t c;
+  int end;
+  int len = 0;
+
   // Skip leading spaces.
   while (*path == ' ') {
     path++;
   }
-  fname->begin = path;
-  fname->end = path;
-  while (*path && !isDirSeparator(*path)) {
-    uint8_t c = *path++;
-    if (!lfnLegalChar(c)) {
-      DBG_FAIL_MACRO;
-      goto fail;
+  fname->lfn = path;
+
+  for (len = 0; ; len++) {
+    c = path[len];
+    if (c == 0 || isDirSeparator(c)) {
+      break;
     }
-    if (c != '.' && c != ' ') {
-      // Need to trim trailing dots spaces.
-      fname->end = path;
+    if (!lfnLegalChar(c)) {
+      return false;
     }
   }
   // Advance to next path component.
-  for (; *path == ' ' || isDirSeparator(*path); path++) {}
-  *ptr = path;
-  return hashName(fname);
+  for (end = len; path[end] ==  ' ' || isDirSeparator(path[end]); end++) {}
+  *ptr = &path[end];
 
- fail:
-  return false;
+  // Back over spaces and dots.
+  while (len) {
+    c = path[len - 1];
+    if (c != '.' && c != ' ') {
+      break;
+    }
+    len--;
+  }
+  // Max length of LFN is 255.
+  if (len > EXFAT_MAX_NAME_LENGTH) {
+    return false;
+  }
+  fname->len = len;
+  return true;
 }
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 int ExFatFile::peek() {
   uint64_t curPosition = m_curPosition;
   uint32_t curCluster = m_curCluster;
@@ -532,7 +503,44 @@ int ExFatFile::peek() {
   m_curCluster = curCluster;
   return c;
 }
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+size_t ExFatFile::printName(print_t* pr) {
+  DirName_t* dn;
+  DirPos_t pos = m_dirPos;
+  size_t n = 0;
+  uint8_t in;
+  uint8_t buf[15];
+  if (!isOpen()) {
+      DBG_FAIL_MACRO;
+      goto fail;
+  }
+  for (uint8_t is = 1; is < m_setCount; is++) {
+    if (m_vol->dirSeek(&pos, is == 1 ? 64: 32) != 1) {
+      DBG_FAIL_MACRO;
+      goto fail;
+    }
+    dn = reinterpret_cast<DirName_t*>
+         (m_vol->dirCache(&pos, FsCache::CACHE_FOR_READ));
+    if (!dn || dn->type != EXFAT_TYPE_NAME) {
+      DBG_FAIL_MACRO;
+      goto fail;
+    }
+    for (in = 0; in < 15; in++) {
+      uint16_t c = getLe16(dn->unicode + 2*in);
+      if (!c) {
+        break;;
+      }
+      buf[in] = c < 0X7f ? c : '?';
+      n++;
+    }
+    pr->write(buf, in);
+  }
+  return n;
+
+ fail:
+  return 0;
+}
+//-----------------------------------------------------------------------------
 int ExFatFile::read(void* buf, size_t count) {
   uint8_t* dst = reinterpret_cast<uint8_t*>(buf);
   int8_t fg;
@@ -596,14 +604,23 @@ int ExFatFile::read(void* buf, size_t count) {
 #if USE_MULTI_SECTOR_IO
     } else if (toRead >= 2*m_vol->bytesPerSector()) {
       uint32_t ns = toRead >> m_vol->bytesPerSectorShift();
-      // Limit reads to current cluster.
+      // Limit writes to current cluster.
       uint32_t maxNs = m_vol->sectorsPerCluster()
                        - (clusterOffset >> m_vol->bytesPerSectorShift());
       if (ns > maxNs) {
         ns = maxNs;
       }
       n = ns << m_vol->bytesPerSectorShift();
-     if (!m_vol->cacheSafeRead(sector, dst, ns)) {
+      // Check for cache sector in read range.
+      if (sector <= m_vol->dataCacheSector()
+          && m_vol->dataCacheSector() < (sector + ns)) {
+        // Flush cache if cache sector is in the range.
+        if (!m_vol->dataCacheSync()) {
+          DBG_FAIL_MACRO;
+          goto fail;
+        }
+      }
+      if (!m_vol->readSectors(sector, dst, ns)) {
         DBG_FAIL_MACRO;
         goto fail;
       }
@@ -611,7 +628,7 @@ int ExFatFile::read(void* buf, size_t count) {
     } else {
       // read single sector
       n = m_vol->bytesPerSector();
-      if (!m_vol->cacheSafeRead(sector, dst)) {
+      if (!m_vol->readSector(sector, dst)) {
         DBG_FAIL_MACRO;
         goto fail;
       }
@@ -622,12 +639,12 @@ int ExFatFile::read(void* buf, size_t count) {
   }
   return count - toRead;
 
- fail:
+fail:
   m_error |= READ_ERROR;
   return -1;
 }
 //------------------------------------------------------------------------------
-bool ExFatFile::remove(const char* path) {
+bool ExFatFile::remove(const ExChar_t* path) {
   ExFatFile file;
   if (!file.open(this, path, O_WRONLY)) {
     DBG_FAIL_MACRO;
@@ -635,7 +652,7 @@ bool ExFatFile::remove(const char* path) {
   }
   return file.remove();
 
- fail:
+fail:
   return false;
 }
 //------------------------------------------------------------------------------
@@ -685,11 +702,11 @@ bool ExFatFile::seekSet(uint64_t pos) {
     }
   }
 
- done:
+done:
   m_curPosition = pos;
   return true;
 
- fail:
+fail:
   m_curCluster = tmp;
   return false;
 }

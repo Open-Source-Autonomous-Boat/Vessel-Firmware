@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Bill Greiman
+ * Copyright (c) 2011-2019 Bill Greiman
  * This file is part of the SdFat library for SD memory cards.
  *
  * MIT License
@@ -92,7 +92,7 @@ void StreamBaseClass::open(const char* path, ios::openmode mode) {
   clear();
   return;
 
- fail:
+fail:
   StreamBaseFile::close();
   setstate(failbit);
   return;

@@ -48,15 +48,6 @@ void cardOrSpeed() {
   cout << F("Edit SPI_SPEED in this program to change it.\n");
 }
 
-void clearSerialInput() {
-  uint32_t m = micros();
-  do {
-    if (Serial.read() >= 0) {
-      m = micros();
-    }
-  } while (micros() - m < 10000);
-}
-
 void reformatMsg() {
   cout << F("Try reformatting the card.  For best results use\n");
   cout << F("the SdFormatter program in SdFat/examples or download\n");
@@ -97,7 +88,9 @@ void setup() {
 bool firstTry = true;
 void loop() {
   // Read any existing Serial data.
-  clearSerialInput();
+  do {
+    delay(10);
+  } while (Serial.available() && Serial.read() >= 0);
 
   if (!firstTry) {
     cout << F("\nRestarting\n");
@@ -178,8 +171,9 @@ void loop() {
     return;
   }
   // Read any extra Serial data.
-  clearSerialInput();
-
+  do {
+    delay(10);
+  } while (Serial.available() && Serial.read() >= 0);
   cout << F("\nSuccess!  Type any character to restart.\n");
   while (!Serial.available()) {
     SysCall::yield();

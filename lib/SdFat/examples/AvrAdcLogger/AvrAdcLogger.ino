@@ -44,16 +44,10 @@ MinimumSerial MinSerial;
 //------------------------------------------------------------------------------
 // Set USE_RTC nonzero for file timestamps.
 // RAM use will be marginal on Uno with RTClib.
-// Set USE_RTC nonzero for file timestamps.
-// RAM use will be marginal on Uno with RTClib.
-// 0 - RTC not used
-// 1 - DS1307
-// 2 - DS3231
-// 3 - PCF8523
 #define USE_RTC 0
 #if USE_RTC
 #include "RTClib.h"
-#endif  // USE_RTC
+#endif
 //------------------------------------------------------------------------------
 // Pin definitions.
 //
@@ -147,18 +141,16 @@ const uint16_t MIN_ADC_CYCLES = 15;
 // Extra cpu cycles to setup ADC with more than one pin per sample.
 const uint16_t ISR_SETUP_ADC = PIN_COUNT > 1 ? 100 : 0;
 
-// Maximum cycles for timer0 system interrupt.
+// Maximum cycles for timer0 system interrupt, millis, micros.
 const uint16_t ISR_TIMER0 = 160;
 //==============================================================================
 const uint32_t MAX_FILE_SIZE = MAX_FILE_SIZE_MiB << 20;
 
-// Select fastest interface.  Max SPI rate for AVR is 10 MHx.
-#define SPI_CLOCK SD_SCK_MHZ(10)
-
+// Select fastest interface.
 #if ENABLE_DEDICATED_SPI
-#define SD_CONFIG SdSpiConfig(SD_CS_PIN, DEDICATED_SPI, SPI_CLOCK)
+#define SD_CONFIG SdSpiConfig(SD_CS_PIN, DEDICATED_SPI)
 #else  // ENABLE_DEDICATED_SPI
-#define SD_CONFIG SdSpiConfig(SD_CS_PIN, SHARED_SPI, SPI_CLOCK)
+#define SD_CONFIG SdSpiConfig(SD_CS_PIN, SHARED_SPI)
 #endif  // ENABLE_DEDICATED_SPI
 
 #if SD_FAT_TYPE == 0
@@ -311,15 +303,8 @@ void printUnusedStack() {
 }
 //------------------------------------------------------------------------------
 #if USE_RTC
-#if USE_RTC == 1
 RTC_DS1307 rtc;
-#elif USE_RTC == 2
-RTC_DS3231 rtc;
-#elif USE_RTC == 3
-RTC_PCF8523 rtc;
-#else  // USE_RTC == type
-#error USE_RTC type not implemented.
-#endif  // USE_RTC == type
+
 // Call back for file timestamps.  Only called for file create and sync().
 void dateTime(uint16_t* date, uint16_t* time, uint8_t* ms10) {
   DateTime now = rtc.now();
@@ -568,15 +553,6 @@ void binaryToCsv() {
   Serial.println(F(" Seconds"));
 }
 //------------------------------------------------------------------------------
-void clearSerialInput() {
-  uint32_t m = micros();
-  do {
-    if (Serial.read() >= 0) {
-      m = micros();
-    }
-  } while (micros() - m < 10000);
-}
-//------------------------------------------------------------------------------
 void createBinFile() {
   binFile.close();
   while (sd.exists(binName)) {
@@ -743,7 +719,7 @@ void logData() {
 //------------------------------------------------------------------------------
 void openBinFile() {
   char name[NAME_DIM];
-  clearSerialInput();
+  serialClearInput();
   Serial.println(F("Enter file name"));
   if (!serialReadLine(name, sizeof(name))) {
     return;
@@ -794,6 +770,12 @@ void printData() {
     }
   }
   Serial.println(F("Done"));
+}
+//------------------------------------------------------------------------------
+void serialClearInput() {
+  do {
+    delay(10);
+  } while (Serial.read() >= 0);
 }
 //------------------------------------------------------------------------------
 bool serialReadLine(char* str, size_t size) {
@@ -858,7 +840,9 @@ void setup(void) {
 void loop(void) {
   printUnusedStack();
   // Read any Serial data.
-  clearSerialInput();
+  do {
+    delay(10);
+  } while (Serial.available() && Serial.read() >= 0);
   Serial.println();
   Serial.println(F("type:"));
   Serial.println(F("b - open existing bin file"));
@@ -876,7 +860,9 @@ void loop(void) {
     digitalWrite(ERROR_LED_PIN, LOW);
   }
   // Read any Serial data.
-  clearSerialInput();
+  do {
+    delay(10);
+  } while (Serial.available() && Serial.read() >= 0);
 
   if (c == 'b') {
     openBinFile();

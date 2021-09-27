@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Bill Greiman
+ * Copyright (c) 2011-2019 Bill Greiman
  * This file is part of the SdFat library for SD memory cards.
  *
  * MIT License
@@ -55,14 +55,9 @@ inline uint8_t SdSpiArduinoDriver::receive() {
 }
 //------------------------------------------------------------------------------
 inline uint8_t SdSpiArduinoDriver::receive(uint8_t* buf, size_t count) {
-#if USE_SPI_ARRAY_TRANSFER
-  memset(buf, 0XFF, count);
-  m_spi->transfer(buf, count);
-#else  // USE_SPI_ARRAY_TRANSFER
   for (size_t i = 0; i < count; i++) {
     buf[i] = m_spi->transfer(0XFF);
   }
-#endif  // USE_SPI_ARRAY_TRANSFER
   return 0;
 }
 //------------------------------------------------------------------------------
@@ -71,16 +66,8 @@ inline void SdSpiArduinoDriver::send(uint8_t data) {
 }
 //------------------------------------------------------------------------------
 inline void SdSpiArduinoDriver::send(const uint8_t* buf, size_t count) {
-#if USE_SPI_ARRAY_TRANSFER
-  if (count <= 512) {
-    uint8_t tmp[512];
-    memcpy(tmp, buf, count);
-    m_spi->transfer(tmp, count);
-  }
-#else  // USE_SPI_ARRAY_TRANSFER
   for (size_t i = 0; i < count; i++) {
     m_spi->transfer(buf[i]);
   }
-#endif  // USE_SPI_ARRAY_TRANSFER  
 }
 #endif  // SdSpiLibDriver_h

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Bill Greiman
+ * Copyright (c) 2011-2019 Bill Greiman
  * This file is part of the SdFat library for SD memory cards.
  *
  * MIT License
@@ -24,10 +24,8 @@
  */
 #define DBG_FILE "ExFatFormatter.cpp"
 #include "../common/DebugMacros.h"
-#include "../common/upcase.h"
-#include "../common/FsStructs.h"
 #include "ExFatFormatter.h"
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Formatter assumes 512 byte sectors.
 const uint32_t BOOT_BACKUP_OFFSET = 12;
 const uint16_t BYTES_PER_SECTOR = 512;
@@ -37,7 +35,7 @@ const uint16_t MINIMUM_UPCASE_SKIP = 512;
 const uint32_t BITMAP_CLUSTER = 2;
 const uint32_t UPCASE_CLUSTER = 3;
 const uint32_t ROOT_CLUSTER = 4;
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 #define PRINT_FORMAT_PROGRESS 1
 #if !PRINT_FORMAT_PROGRESS
 #define writeMsg(pr, str)
@@ -46,7 +44,7 @@ const uint32_t ROOT_CLUSTER = 4;
 #else  // PRINT_FORMAT_PROGRESS
 #define writeMsg(pr, str) if (pr) pr->write(str)
 #endif  // PRINT_FORMAT_PROGRESS
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 bool ExFatFormatter::format(BlockDevice* dev, uint8_t* secBuf, print_t* pr) {
 #if !PRINT_FORMAT_PROGRESS
 (void)pr;
@@ -203,7 +201,7 @@ bool ExFatFormatter::format(BlockDevice* dev, uint8_t* secBuf, print_t* pr) {
   memset(secBuf, 0, BYTES_PER_SECTOR);
   // Allocate two reserved clusters, bitmap, upcase, and root clusters.
   secBuf[0] = 0XF8;
-  for (size_t i = 1; i < 20; i++) {
+  for (size_t i = 0; i < 20; i++) {
     secBuf[i] = 0XFF;
   }
   for (uint32_t i = 0; i < ns; i++) {
@@ -259,7 +257,7 @@ bool ExFatFormatter::format(BlockDevice* dev, uint8_t* secBuf, print_t* pr) {
   label = reinterpret_cast<DirLabel_t*>(secBuf);
   label->type = EXFAT_TYPE_LABEL & 0X7F;
 
-  // bitmap directory entry.
+  // bitmap directory  entry.
   dbm = reinterpret_cast<DirBitmap_t*>(secBuf + 32);
   dbm->type = EXFAT_TYPE_BITMAP;
   setLe32(dbm->firstCluster, BITMAP_CLUSTER);
@@ -289,7 +287,7 @@ bool ExFatFormatter::format(BlockDevice* dev, uint8_t* secBuf, print_t* pr) {
   writeMsg(pr, "Format failed\r\n");
   return false;
 }
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 bool ExFatFormatter::syncUpcase() {
   uint16_t index = m_upcaseSize & SECTOR_MASK;
   if (!index) {
@@ -300,7 +298,7 @@ bool ExFatFormatter::syncUpcase() {
   }
   return m_dev->writeSector(m_upcaseSector, m_secBuf);
 }
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 bool ExFatFormatter::writeUpcaseByte(uint8_t b) {
   uint16_t index = m_upcaseSize & SECTOR_MASK;
   m_secBuf[index] = b;
@@ -311,11 +309,11 @@ bool ExFatFormatter::writeUpcaseByte(uint8_t b) {
   }
   return true;
 }
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 bool ExFatFormatter::writeUpcaseUnicode(uint16_t unicode) {
   return writeUpcaseByte(unicode) && writeUpcaseByte(unicode >> 8);
 }
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 bool ExFatFormatter::writeUpcase(uint32_t sector) {
   uint32_t n;
   uint32_t ns;

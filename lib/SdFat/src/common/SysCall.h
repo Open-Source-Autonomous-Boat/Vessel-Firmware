@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Bill Greiman
+ * Copyright (c) 2011-2019 Bill Greiman
  * This file is part of the SdFat library for SD memory cards.
  *
  * MIT License
@@ -30,7 +30,7 @@
 #define SysCall_h
 #include <stdint.h>
 #include <stddef.h>
-#include "SdFatConfig.h"
+#include "../SdFatConfig.h"
 #if __cplusplus < 201103
 #warning nullptr defined
 /** Define nullptr if not C++11 */
@@ -79,10 +79,7 @@ inline SdMillis_t SysCall::curTimeMS() {
 //------------------------------------------------------------------------------
 #if defined(PLATFORM_ID)  // Only defined if a Particle device
 inline void SysCall::yield() {
-  // Recommended to only call Particle.process() if system threading is disabled
-  if (system_thread_get_state(NULL) == spark::feature::DISABLED) {
-    Particle.process();
-  }
+  Particle.process();
 }
 #elif defined(ARDUINO)
 inline void SysCall::yield() {

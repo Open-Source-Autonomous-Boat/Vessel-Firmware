@@ -1,11 +1,11 @@
 #include <ArduinoJson.h>
 #include <SPI.h>
 #include <SdFat.h>
-SdFs SD;
+SdFat32 SD;
 
-File missionProfile;
-File missionLog;
-File dataLog;
+File32 missionProfile;
+File32 missionLog;
+File32 dataLog;
 
 char fileCharArray[1024]; // Holds chars from SD read
 StaticJsonDocument<1024> deserializedJson; // Nested array that holds the deserialized json contents from SD reads
