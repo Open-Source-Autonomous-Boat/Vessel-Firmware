@@ -20,7 +20,7 @@ This is the firmware that runs on the main teensy 4.1 board.
 - [bblanchon/ArduinoJson](https://github.com/bblanchon/ArduinoJson)
 - [Open-Source-Autonomous-Boat/NavTools](https://github.com/Open-Source-Autonomous-Boat/NavTools)
 - [PaulStoffregen/PWMServo](https://github.com/PaulStoffregen/PWMServo) **Included in Teensyduino*
-- [adafruit/RTClib](https://github.com/adafruit/RTClib) **Will be replaced by `PaulStoffregen/Time` soon.*
+- [adafruit/RTClib](https://github.com/adafruit/RTClib)
 - [PaulStoffregen/SdFat-beta](https://github.com/PaulStoffregen/SdFat-beta) **Note:** You have to rename the library folder to `SdFat`.
 - [PaulStoffregen/SPI](https://github.com/PaulStoffregen/SPI) **Included in Teensyduino*
 - [joysfera/arduino-tasker](https://github.com/joysfera/arduino-tasker)
