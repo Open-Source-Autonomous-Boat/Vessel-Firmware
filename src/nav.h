@@ -67,14 +67,14 @@ float getHeading(){
 
 
 	// Display the results (magnetic vector values are in micro-Tesla (uT))
-	// Serial.print("X: "); Serial.print(MagEvent.magnetic.x); Serial.print("  ");
-	// Serial.print("Y: "); Serial.print(MagEvent.magnetic.y); Serial.print("  ");
-	// Serial.print("Z: "); Serial.print(MagEvent.magnetic.z); Serial.print("  ");Serial.println("uT");
+	// SerialLog.print("X: "); SerialLog.print(MagEvent.magnetic.x); SerialLog.print("  ");
+	// SerialLog.print("Y: "); SerialLog.print(MagEvent.magnetic.y); SerialLog.print("  ");
+	// SerialLog.print("Z: "); SerialLog.print(MagEvent.magnetic.z); SerialLog.print("  ");SerialLog.println("uT");
 
 	// Display the results (acceleration is measured in m/s^2) */
-	// Serial.print("X: "); Serial.print(AcclEvent.acceleration.x); Serial.print("  ");
-	// Serial.print("Y: "); Serial.print(AcclEvent.acceleration.y); Serial.print("  ");
-	// Serial.print("Z: "); Serial.print(AcclEvent.acceleration.z); Serial.print("  ");Serial.println("m/s^2 ");
+	// SerialLog.print("X: "); SerialLog.print(AcclEvent.acceleration.x); SerialLog.print("  ");
+	// SerialLog.print("Y: "); SerialLog.print(AcclEvent.acceleration.y); SerialLog.print("  ");
+	// SerialLog.print("Z: "); SerialLog.print(AcclEvent.acceleration.z); SerialLog.print("  ");SerialLog.println("m/s^2 ");
 }
 
 void FetchGPS() {
@@ -91,7 +91,7 @@ void FetchGPS() {
 				UpdateClock(gps.date.year(), gps.date.month(), gps.date.day(), gps.time.hour(), gps.time.minute(), gps.time.second());
 			}
 		}
-		// Serial.write(c); // Uncomment to see the GPS data flowing
+		// SerialLog.write(c); // Uncomment to see the GPS data flowing
 	}
 
 }

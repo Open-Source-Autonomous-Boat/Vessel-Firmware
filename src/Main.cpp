@@ -9,7 +9,7 @@
 // ===Nav & GPS===
 #include <TinyGPS++.h>
 #include "NavTools.h"			// Our custom library
-#include "navigation.h"
+#include "nav.h"
 bool Fix;							// Set to true when the GPS has a fix
 int Heading;						// The direction we are going
 int Bearing;						// The dirrection we need to be going
@@ -37,8 +37,10 @@ float RudderTrim = 100;		// PWM value of servo when straight
 int RudderMinPWM = 500;		// Don't drive the servo under this value
 int RudderMaxPWM = 2500;	// Don't drive the servo over this value
 
-// define max number of tasks to save precious Arduino RAM
-#define TASKER_MAX_TASKS 4
+#define SerialLog Serial1 // For bluetooth serial monitor
+// #define SerialLog Serial // For USB serial monitor
+#include "coms.h"
+
 #include <Tasker.h>
 Tasker tasker;
 
@@ -48,13 +50,13 @@ void serialLogDump();
 void setup() {
 	delay(1000); // If the run time is too fast it makes users feal like the program did nothing and causes distrust. This slows down the setup so that people trust it more.
 
-	Serial.begin(115200); // Start serial
-	Serial.println("SERIAL STARTED");
-	Serial.println("===== STARTING UP VESSEL =====");
+	SerialLog.begin(115200); // Start serial
+	SerialLog.println("SERIAL STARTED");
+	SerialLog.println("===== STARTING UP VESSEL =====");
 	setupDevices();
-	Serial.println("LOADING MISSION PROFILE...");
+	SerialLog.println("LOADING MISSION PROFILE...");
 	if(!loadMissionProfile("MissionProfiles/missionProfile1.json")){
-		Serial.println("====== ERROR: COULD NOT LOAD MISSION PROFILE! ======");
+		SerialLog.println("====== ERROR: COULD NOT LOAD MISSION PROFILE! ======");
 	}
 	TargetWaypoint = 0;
 	TargetLat = Waypoints[TargetWaypoint].lat;
@@ -63,17 +65,17 @@ void setup() {
 	tasker.setInterval(serialLogDump, 1000);
 
 	// ===FOR TESTING ONLY===
-	Serial.println("===== WAYPOINTS CURRENTLY LOADED =====");
-	Serial.print(Waypoints[0].lat);
-	Serial.print(", ");
-	Serial.println(Waypoints[0].lon);
-	// Serial.println(actions[Waypoints[0].action]);
+	SerialLog.println("===== WAYPOINTS CURRENTLY LOADED =====");
+	SerialLog.print(Waypoints[0].lat);
+	SerialLog.print(", ");
+	SerialLog.println(Waypoints[0].lon);
+	// SerialLog.println(actions[Waypoints[0].action]);
 
-	Serial.print(Waypoints[1].lat);
-	Serial.print(", ");
-	Serial.println(Waypoints[1].lon);
-	// Serial.println(actions[Waypoints[1].action]);
-	Serial.println("=========================================");
+	SerialLog.print(Waypoints[1].lat);
+	SerialLog.print(", ");
+	SerialLog.println(Waypoints[1].lon);
+	// SerialLog.println(actions[Waypoints[1].action]);
+	SerialLog.println("=========================================");
 	// ======================
 }
 
@@ -113,97 +115,40 @@ void loop() {
 
 
 void setupDevices(){
-	Serial.println("STARTING GPS SERIAL...");
+	SerialLog.println("STARTING GPS SERIAL...");
 	gpsSerial.begin(9600);
 
-	Serial.println("STARTING RTC...");
+	SerialLog.println("STARTING RTC...");
 	if (!rtc.begin()) {
-		Serial.println("====== ERROR: COULD NOT FIND RTC! ======");
+		SerialLog.println("====== ERROR: COULD NOT FIND RTC! ======");
 	}
 	
-	Serial.println("STARTING LSM303DLHC...");
+	SerialLog.println("STARTING LSM303DLHC...");
 	if (!mag.begin()) {
-		Serial.println("====== ERROR: COULD NOT FIND LSM303 MAGNETOMETER! ======");
+		SerialLog.println("====== ERROR: COULD NOT FIND LSM303 MAGNETOMETER! ======");
 	}
 	if (!accl.begin()) {
-		Serial.println("====== ERROR: COULD NOT FIND LSM303 ACCELEROMETER! ======");
+		SerialLog.println("====== ERROR: COULD NOT FIND LSM303 ACCELEROMETER! ======");
 	}
 
-	Serial.println("SETTING UP RUDDER SERVO...");
+	SerialLog.println("SETTING UP RUDDER SERVO...");
 	if(!Rudder.attach(22, RudderMinPWM, RudderMaxPWM)){
-		Serial.println("====== ERROR: FAILED ATTACHING RUDDER SERVO! ======");
+		SerialLog.println("====== ERROR: FAILED ATTACHING RUDDER SERVO! ======");
 	}
 
 	Serial.println("SETTING UP ESC...");
 	if (!Motor.attach(23)) {
-		Serial.println("====== ERROR: COULD NOT SET UP ESC! ======");
-		Serial.println("ABORT ARMING ESC DUE TO FAILURE SETTING UP ESC");
+		SerialLog.println("====== ERROR: COULD NOT SET UP ESC! ======");
+		SerialLog.println("ABORT ARMING ESC DUE TO FAILURE SETTING UP ESC");
 	}
 	else {
-		Serial.println("ARMING ESC...");
+		SerialLog.println("ARMING ESC...");
 		Motor.write(90); // You must set throttle to neutral to arm ESC
 	}
 
 
-	Serial.println("STARTING SD CARD...");
+	SerialLog.println("STARTING SD CARD...");
 	if (!SD.begin(SdioConfig(FIFO_SDIO))) {
-		Serial.println("====== ERROR: COULD NOT INITIALIZE SD CARD! ======");
+		SerialLog.println("====== ERROR: COULD NOT INITIALIZE SD CARD! ======");
 	}
-}
-
-void serialLogDump(){
-	Serial.print("Date/Time: ");
-	Serial.print(now.year(), DEC);
-	Serial.print('/');
-	Serial.print(now.month(), DEC);
-	Serial.print('/');
-	Serial.print(now.day(), DEC);
-	Serial.print(" ");
-	Serial.print(now.hour(), DEC);
-	Serial.print(':');
-	Serial.print(now.minute(), DEC);
-	Serial.print(':');
-	Serial.print(now.second(), DEC);
-	if (gps.date.isValid()) {
-		Serial.print("	Date: ");
-		Serial.print(gps.date.year());
-		Serial.print('/');
-		Serial.print(gps.date.month());
-		Serial.print('/');
-		Serial.print(gps.date.day());
-		// Serial.print(" ");
-	} else {
-		Serial.print("	Date: ");
-		Serial.print("xx");
-		Serial.print(':');
-		Serial.print("xx");
-		Serial.print(':');
-		Serial.print("xx");
-	}
-	if (gps.time.isValid()) {
-		Serial.print("	Time: ");
-		Serial.print(gps.time.hour());
-		Serial.print(':');
-		Serial.print(gps.time.minute());
-		Serial.print(':');
-		Serial.print(gps.time.second());
-	} else {
-		Serial.print("	Time: ");
-		Serial.print("xx");
-		Serial.print(':');
-		Serial.print("xx");
-		Serial.print(':');
-		Serial.print("xx");
-	}
-	Serial.print("	GPS Fix: ");
-	Serial.print(GPSFix.value());
-	Serial.print("	Lat/Long: ");
-	Serial.print(CurrLat,6);
-	Serial.print(", ");
-	Serial.print(CurrLong,6);
-	Serial.print("	Heading: ");
-	Serial.print(Heading);
-	Serial.print("	Bearing:");
-	Serial.print(Bearing);
-	Serial.println();
 }
