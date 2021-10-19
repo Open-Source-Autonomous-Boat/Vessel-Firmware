@@ -7,9 +7,9 @@ File32 missionProfile;
 File32 missionLog;
 File32 dataLog;
 
-char fileCharArray[1024]; // Holds chars from SD read
-StaticJsonDocument<1024> deserializedJson; // Nested array that holds the deserialized json contents from SD reads
-StaticJsonDocument<1024> serializedJson; // Nested array that holds the serialized json contents for SD writes
+DMAMEM char fileCharArray[10000]; // Holds chars from SD read
+DMAMEM StaticJsonDocument<10000> deserializedJson; // Nested array that holds the deserialized json contents from SD reads
+DMAMEM StaticJsonDocument<10000> serializedJson; // Nested array that holds the serialized json contents for SD writes
 
 extern struct Waypoint Waypoints[20];
 
