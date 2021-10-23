@@ -49,8 +49,8 @@ float ThrottleMin = 15;		// Set later
 float ThrottleMax = 15;		// Set later
 float ThrottleOff = 0;		// PWM value 
 
-#define SerialLog Serial1 // For bluetooth serial monitor
-// #define SerialLog Serial // For USB serial monitor
+// #define SerialLog Serial1 // For bluetooth serial monitor
+#define SerialLog Serial // For USB serial monitor
 #include "coms.h"
 
 #include <Tasker.h>
@@ -62,6 +62,8 @@ void fetchSerialCommands();
 
 void setup() {
 	delay(1000); // If the run time is too fast it makes users feal like the program did nothing and causes distrust. This slows down the setup so that people trust it more.
+
+	tasker.setInterval(serialLogDump, 1000);
 
 	SerialLog.begin(115200); // Start serial
 	SerialLog.println("SERIAL STARTED");
