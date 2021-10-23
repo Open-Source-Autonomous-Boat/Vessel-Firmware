@@ -101,6 +101,7 @@ void loop() {
 	UpdateFix();	// Check if the GPS has a fix and write it to the 'fix' bool
 	
 	if(Fix && Mode == 1) { // If the GPS has a fix with satellites and we are in the right mode, start driving the boat
+		Heading = GetHeading();															// Figure out what direction we are going
 		Bearing = CalcBearing(CurrLat, CurrLong, TargetLat, TargetLong);	// Figure out what direction we need to be going
 		RelativeBearing = Heading - Bearing;										// Figure out how much we need to turn to be going the right way
 		RudderPos = ((255/127.5)*RelativeBearing)+RudderTrim;					// Figure out how much to steer the rudder to get us to turn the right way
