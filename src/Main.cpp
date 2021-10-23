@@ -16,10 +16,12 @@ int Bearing;						// The dirrection we need to be going
 int RelativeBearing;				// The difference between the direction we are going and the dirrection we need to be going
 float CurrLat, CurrLong;		// The vessels current Lat and Long
 float TargetLat, TargetLong;	// The vessels target Lat and Long
-int TargetWaypoint;				// The number of the waypoint that the vessel is currently trying to reach
+float WaypointRadius;
+int TargetWaypoint;				// The index of the waypoint that the vessel is currently trying to reach
 struct Waypoint {					// Struct to hold the waypoints
 	float lat;
 	float lon;
+	float radius;
 	// int action;
 };
 struct Waypoint Waypoints[20];
@@ -61,8 +63,7 @@ void setup() {
 	TargetWaypoint = 0;
 	TargetLat = Waypoints[TargetWaypoint].lat;
 	TargetLong = Waypoints[TargetWaypoint].lon;
-
-	tasker.setInterval(serialLogDump, 1000);
+	WaypointRadius = Waypoints[TargetWaypoint].radius;
 
 	// ===FOR TESTING ONLY===
 	SerialLog.println("===== WAYPOINTS CURRENTLY LOADED =====");
