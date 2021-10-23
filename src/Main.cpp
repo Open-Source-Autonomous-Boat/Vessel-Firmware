@@ -10,6 +10,13 @@
 #include <TinyGPS++.h>
 #include "NavTools.h"			// Our custom library
 #include "nav.h"
+int Mode = 1;						// Vessel's mode of operation
+// 0 = Standby? Hold?
+// 1 = Waypoint Heading
+// 2 = Waypoint Path
+// 3 = Loiter
+// 4 = Return Home
+// 5 = Low Power
 bool Fix;							// Set to true when the GPS has a fix
 int Heading;						// The direction we are going
 int Bearing;						// The dirrection we need to be going
@@ -51,6 +58,7 @@ Tasker tasker;
 
 void setupDevices();
 void serialLogDump();
+void fetchSerialCommands();
 
 void setup() {
 	delay(1000); // If the run time is too fast it makes users feal like the program did nothing and causes distrust. This slows down the setup so that people trust it more.
@@ -86,12 +94,13 @@ void setup() {
 void loop() {
 	tasker.loop();
 
+	fetchSerialCommands();
+
 	now = rtc.now();
 	FetchGPS();		// Get the data from the GPS
 	UpdateFix();	// Check if the GPS has a fix and write it to the 'fix' bool
 	
-	if(Fix) { // If the GPS has a fix with satellites, start driving the boat
-		Heading = getHeading();															// Figure out what direction we are going
+	if(Fix && Mode == 1) { // If the GPS has a fix with satellites and we are in the right mode, start driving the boat
 		Bearing = CalcBearing(CurrLat, CurrLong, TargetLat, TargetLong);	// Figure out what direction we need to be going
 		RelativeBearing = Heading - Bearing;										// Figure out how much we need to turn to be going the right way
 		RudderPos = ((255/127.5)*RelativeBearing)+RudderTrim;					// Figure out how much to steer the rudder to get us to turn the right way

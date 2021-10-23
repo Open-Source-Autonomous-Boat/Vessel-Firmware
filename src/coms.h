@@ -1,3 +1,15 @@
+void fetchSerialCommands(){
+	char c = '0'; // Set to '0' to prevent "may be used uninitialized" warning
+	if (SerialLog.available()) {
+		c = SerialLog.read();
+	}
+	if (c == '1') {
+		SerialLog.println("Changing Mode");
+		Mode = 1;
+	}
+	
+}
+
 void serialLogDump(){
 	SerialLog.print("Date/Time: ");
 	SerialLog.print(now.year(), DEC);
