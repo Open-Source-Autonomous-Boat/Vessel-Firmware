@@ -20,8 +20,8 @@ int Mode = 1;						// Vessel's mode of operation
 // 5 = Low Power
 bool Fix;							// Set to true when the GPS has a fix
 int Heading;						// The direction we are going
-int Bearing;						// The dirrection we need to be going
-int RelativeBearing;				// The difference between the direction we are going and the dirrection we need to be going
+int Bearing;						// The direction we need to be going
+int RelativeBearing;				// The difference between the direction we are going and the direction we need to be going
 float CurrLat, CurrLong;		// The vessels current Lat and Long
 float TargetLat, TargetLong;	// The vessels target Lat and Long
 float WaypointRadius;

@@ -24,7 +24,7 @@ void serialLogDump(){
 	SerialLog.print(':');
 	SerialLog.print(now.second(), DEC);
 	if (gps.date.isValid()) {
-		SerialLog.print("	Date: ");
+		SerialLog.print("	GPS Date: ");
 		SerialLog.print(gps.date.year());
 		SerialLog.print('/');
 		SerialLog.print(gps.date.month());
@@ -32,7 +32,7 @@ void serialLogDump(){
 		SerialLog.print(gps.date.day());
 		// SerialLog.print(" ");
 	} else {
-		SerialLog.print("	Date: ");
+		SerialLog.print("	GPS Date: ");
 		SerialLog.print("xx");
 		SerialLog.print(':');
 		SerialLog.print("xx");
@@ -40,14 +40,14 @@ void serialLogDump(){
 		SerialLog.print("xx");
 	}
 	if (gps.time.isValid()) {
-		SerialLog.print("	Time: ");
+		SerialLog.print("	GPS Time: ");
 		SerialLog.print(gps.time.hour());
 		SerialLog.print(':');
 		SerialLog.print(gps.time.minute());
 		SerialLog.print(':');
 		SerialLog.print(gps.time.second());
 	} else {
-		SerialLog.print("	Time: ");
+		SerialLog.print("	GPS Time: ");
 		SerialLog.print("xx");
 		SerialLog.print(':');
 		SerialLog.print("xx");
