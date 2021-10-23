@@ -32,7 +32,6 @@ struct Waypoint {					// Struct to hold the waypoints
 	float radius;
 	// int action;
 };
-struct Waypoint Waypoints[20];
 
 // ===SD Card===
 #include "files.h"
