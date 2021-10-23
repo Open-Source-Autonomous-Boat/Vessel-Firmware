@@ -100,7 +100,9 @@ void loop() {
 			RudderPos = RudderTrim - RudderRange;
 		}
 		Rudder.write(RudderPos); // Steer the rudder
-		Motor.write(102); // Start the motor
+		if(CheckWaypointCompletion()){ // Check if we have reached the next waypoint
+			TargetWaypoint++; // Advance to the next waypoint
+		}
 
 		// TODO: Add waypoint advancement
 		// TODO: Add loiter mode

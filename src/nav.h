@@ -10,7 +10,7 @@
 TinyGPSPlus gps;
 TinyGPSCustom GPSFix(gps, "GPGGA", 7);
 
-extern float CurrLat, CurrLong;
+extern float CurrLat, CurrLong, TargetLat, TargetLong, WaypointRadius;
 extern bool Fix;
 
 // ===LSM303===
@@ -44,7 +44,7 @@ float getCorrectedValue(float value, float rawMin, float rawMax, float refMin, f
 	return correctedValue;
 }
 
-float getHeading(){
+float GetHeading(){
 	float pi = 3.14159;
 	
 	// Get new sensor events
@@ -77,6 +77,16 @@ float getHeading(){
 	// SerialLog.print("Z: "); SerialLog.print(AcclEvent.acceleration.z); SerialLog.print("  ");SerialLog.println("m/s^2 ");
 }
 
+bool CheckWaypointCompletion(){
+	double dist = CalcDistance(CurrLat, CurrLong, TargetLat, TargetLong);
+	float radius = WaypointRadius;
+	if(dist <= radius){
+		return true;
+	} else {
+		return false;
+	}
+}
+
 void FetchGPS() {
 	// Fetch GPS data if it is available
 	if (gpsSerial.available()) {	// Check if GPS is connected and online
@@ -87,7 +97,7 @@ void FetchGPS() {
 
 			// TODO: Get speed and course from GPS
 			
-			if (gps.date.isValid() && gps.time.isValid()) {
+			if (gps.date.isValid() && gps.time.isValid() && Fix) {
 				UpdateClock(gps.date.year(), gps.date.month(), gps.date.day(), gps.time.hour(), gps.time.minute(), gps.time.second());
 			}
 		}
