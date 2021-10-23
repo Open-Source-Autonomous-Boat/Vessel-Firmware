@@ -81,8 +81,7 @@ float GetHeading(){
 
 bool CheckWaypointCompletion(){
 	double dist = CalcDistance(CurrLat, CurrLong, TargetLat, TargetLong);
-	float radius = WaypointRadius;
-	if(dist <= radius){
+	if(dist <= Waypoints[TargetWaypoint].radius){
 		return true;
 	} else {
 		return false;
