@@ -11,7 +11,7 @@ DMAMEM char fileCharArray[10000]; // Holds chars from SD read
 DMAMEM StaticJsonDocument<10000> deserializedJson; // Nested array that holds the deserialized json contents from SD reads
 DMAMEM StaticJsonDocument<10000> serializedJson; // Nested array that holds the serialized json contents for SD writes
 
-extern struct Waypoint Waypoints[20];
+extern struct Waypoint Waypoints[100];
 
 bool loadMissionProfile(String path) {
 	missionProfile = SD.open(path, FILE_READ);

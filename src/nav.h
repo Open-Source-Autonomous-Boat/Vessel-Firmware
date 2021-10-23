@@ -10,7 +10,9 @@
 TinyGPSPlus gps;
 TinyGPSCustom GPSFix(gps, "GPGGA", 7);
 
-extern float CurrLat, CurrLong, TargetLat, TargetLong, WaypointRadius;
+extern float CurrLat, CurrLong, TargetLat, TargetLong;
+extern int TargetWaypoint;
+extern struct Waypoint Waypoints[100];
 extern bool Fix;
 
 // ===LSM303===

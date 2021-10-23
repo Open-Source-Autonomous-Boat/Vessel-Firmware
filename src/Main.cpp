@@ -9,6 +9,7 @@
 // ===Nav & GPS===
 #include <TinyGPS++.h>
 #include "NavTools.h"			// Our custom library
+struct Waypoint Waypoints[100]; // This has to be before the 'nav.h' file
 #include "nav.h"
 int Mode = 1;						// Vessel's mode of operation
 // 0 = Standby? Hold?
