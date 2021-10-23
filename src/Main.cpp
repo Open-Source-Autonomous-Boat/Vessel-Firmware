@@ -34,10 +34,13 @@ struct Waypoint Waypoints[20];
 PWMServo Rudder;
 PWMServo Motor;
 float RudderPos;
-float RudderRange = 40;		// Max value is 127.5
-float RudderTrim = 100;		// PWM value of servo when straight
-int RudderMinPWM = 500;		// Don't drive the servo under this value
-int RudderMaxPWM = 2500;	// Don't drive the servo over this value
+float RudderRange = 40;		// Max value for this is 127.5
+float RudderTrim = 100;		// Tune this to the PWM value of the servo when straight
+const int RudderMinPWM = 1000;		// Sets the min PWM pulse width
+const int RudderMaxPWM = 2000;	// Sets the max PWM pulse width
+float ThrottleMin = 15;		// Set later
+float ThrottleMax = 15;		// Set later
+float ThrottleOff = 0;		// PWM value 
 
 #define SerialLog Serial1 // For bluetooth serial monitor
 // #define SerialLog Serial // For USB serial monitor
@@ -101,6 +104,8 @@ void loop() {
 			RudderPos = RudderTrim - RudderRange;
 		}
 		Rudder.write(RudderPos); // Steer the rudder
+		Motor.write(15); // Start the motor
+
 		if(CheckWaypointCompletion()){ // Check if we have reached the next waypoint
 			TargetWaypoint++; // Advance to the next waypoint
 		}
@@ -110,7 +115,7 @@ void loop() {
 		// TODO: Loiter when last waypoint is reached
 	}
 	else {
-		Motor.write(100); // Stop the motor
+		Motor.write(0); // Stop the motor
 		Rudder.write(RudderTrim); // Center the rudder
 	}
 
@@ -140,13 +145,13 @@ void setupDevices(){
 	}
 
 	Serial.println("SETTING UP ESC...");
-	if (!Motor.attach(23)) {
+	if (!Motor.attach(23, 1000, 2000)) {
 		SerialLog.println("====== ERROR: COULD NOT SET UP ESC! ======");
 		SerialLog.println("ABORT ARMING ESC DUE TO FAILURE SETTING UP ESC");
 	}
 	else {
 		SerialLog.println("ARMING ESC...");
-		Motor.write(90); // You must set throttle to neutral to arm ESC
+		Motor.write(0);
 	}
 
 
