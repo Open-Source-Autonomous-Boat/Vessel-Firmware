@@ -1,6 +1,7 @@
 // TODO: Add watchdog timer
 
-#include "errors.h" // Contains checks to ensure everything is working
+#include "global.h" // Contains global variables and definitions
+#include "errors.h" // Contains checks to ensure everything is working and error handling for if it is not working
 
 // ===RTC===
 #include <RTClib.h>
@@ -8,30 +9,8 @@
 
 // ===Nav & GPS===
 #include <TinyGPS++.h>
-#include "NavTools.h"			// Our custom library
-struct Waypoint Waypoints[100]; // This has to be before the 'nav.h' file
+#include "NavTools.h" // Our custom library
 #include "nav.h"
-int Mode = 1;						// Vessel's mode of operation
-// 0 = Standby? Hold?
-// 1 = Waypoint Heading
-// 2 = Waypoint Path
-// 3 = Loiter
-// 4 = Return Home
-// 5 = Low Power
-bool Fix;							// Set to true when the GPS has a fix
-int Heading;						// The direction we are going
-int Bearing;						// The direction we need to be going
-int RelativeBearing;				// The difference between the direction we are going and the direction we need to be going
-float CurrLat, CurrLong;		// The vessels current Lat and Long
-float TargetLat, TargetLong;	// The vessels target Lat and Long
-float WaypointRadius;
-int TargetWaypoint;				// The index of the waypoint that the vessel is currently trying to reach
-struct Waypoint {					// Struct to hold the waypoints
-	float lat;
-	float lon;
-	float radius;
-	// int action;
-};
 
 // ===SD Card===
 #include "files.h"
@@ -40,57 +19,64 @@ struct Waypoint {					// Struct to hold the waypoints
 #include <PWMServo.h>
 PWMServo Rudder;
 PWMServo Motor;
-float RudderPos;
-float RudderRange = 40;		// Max value for this is 127.5
-float RudderTrim = 100;		// Tune this to the PWM value of the servo when straight
-const int RudderMinPWM = 1000;		// Sets the min PWM pulse width
-const int RudderMaxPWM = 2000;	// Sets the max PWM pulse width
-float ThrottleMin = 15;		// Set later
-float ThrottleMax = 15;		// Set later
-float ThrottleOff = 0;		// PWM value 
 
-// #define SerialLog Serial1 // For bluetooth serial monitor
-#define SerialLog Serial // For USB serial monitor
+// ===Comunication===
+// TODO: Add satellite comunications
 #include "coms.h"
+#include <string.h>
 
+// ===Scheduling===
 #include <Tasker.h>
 Tasker tasker;
 
-void setupDevices();
-void serialLogDump();
-void fetchSerialCommands();
+void deviceSetup(); // Declare deviceSetup() function before it is used in setup()
 
 void setup() {
-	delay(1000); // If the run time is too fast it makes users feal like the program did nothing and causes distrust. This slows down the setup so that people trust it more.
+	delay(1000); // Delays startup for when turning on or uploading new code to help will debugging
 
-	tasker.setInterval(serialLogDump, 1000);
+	tasker.setInterval(updateMissionLog, 1000); // Update mission log every 1 second
 
-	SerialLog.begin(115200); // Start serial
-	SerialLog.println("SERIAL STARTED");
-	SerialLog.println("===== STARTING UP VESSEL =====");
-	setupDevices();
-	SerialLog.println("LOADING MISSION PROFILE...");
-	if(!loadMissionProfile("MissionProfiles/missionProfile1.json")){
-		SerialLog.println("====== ERROR: COULD NOT LOAD MISSION PROFILE! ======");
+	SerialDebug.begin(115200); // Start serial for debugging
+	SerialDebug.println("SERIAL STARTED");
+	SerialDebug.println("===== CRASH REPORT =====");
+	SerialDebug.println(CrashReport);
+	SerialDebug.println("========================");
+	SerialDebug.println("===== STARTING UP VESSEL =====");
+
+	deviceSetup(); // Setup code for all devices/modules
+
+	SerialDebug.println("LOADING MISSION PROFILE...");
+	if (!loadMissionProfile(MISSION_ONE)) {
+		SerialDebug.println("====== ERROR: COULD NOT LOAD MISSION PROFILE! ======");
+		SerialDebug.println("FALLBACK: LOADING DEFAULT MISSION PROFILE...");
+		if (!loadMissionProfile(MISSION_DEFAULT)) {
+			SerialDebug.println("====== ERROR: COULD NOT LOAD DEFAULT MISSION PROFILE! ======");
+			// TODO: Add error handling
+		}
 	}
-	TargetWaypoint = 0;
-	TargetLat = Waypoints[TargetWaypoint].lat;
-	TargetLong = Waypoints[TargetWaypoint].lon;
-	WaypointRadius = Waypoints[TargetWaypoint].radius;
+	
+	// TODO: Get current waypoint from non volatile memory
+	Target = 1;
+	// TODO: figure out how the vessel will know when to change modes other than arriving at waypoints
+	Mode = 1;
 
-	// ===FOR TESTING ONLY===
-	SerialLog.println("===== WAYPOINTS CURRENTLY LOADED =====");
-	SerialLog.print(Waypoints[0].lat);
-	SerialLog.print(", ");
-	SerialLog.println(Waypoints[0].lon);
-	// SerialLog.println(actions[Waypoints[0].action]);
+	if (DEBUG_LOADED_WAYPOINTS) { // List waypoints loaded from the mission profile
+		SerialDebug.println("===== WAYPOINTS CURRENTLY LOADED =====");
+		for (unsigned int i=0; i<sizeof(Waypoints)/sizeof(Waypoints[0]); i++) {
+			if (Waypoints[i].lon == _NULL) {break;} // If the waypoint is null then we have reached the end of the waypoints
+			SerialDebug.print(Waypoints[i].lat);
+			SerialDebug.print(", ");
+			SerialDebug.println(Waypoints[i].lon);
+		}
+		SerialDebug.println("=========================================");
+	}
 
-	SerialLog.print(Waypoints[1].lat);
-	SerialLog.print(", ");
-	SerialLog.println(Waypoints[1].lon);
-	// SerialLog.println(actions[Waypoints[1].action]);
-	SerialLog.println("=========================================");
-	// ======================
+	// NVRAM_START; // Start the Teensy's 16 bytes of NVRAM
+
+	// NVRAM_WRITE(0, 4, 4, 15);
+	// SerialDebug.println(NVRAM_READ(0, 4, 4), HEX);
+	
+	// SerialDebug.println();
 }
 
 void loop() {
@@ -102,73 +88,111 @@ void loop() {
 	FetchGPS();		// Get the data from the GPS
 	UpdateFix();	// Check if the GPS has a fix and write it to the 'fix' bool
 	
-	if(Fix && Mode == 1) { // If the GPS has a fix with satellites and we are in the right mode, start driving the boat
-		Heading = GetHeading();															// Figure out what direction we are going
-		Bearing = CalcBearing(CurrLat, CurrLong, TargetLat, TargetLong);	// Figure out what direction we need to be going
-		RelativeBearing = Heading - Bearing;										// Figure out how much we need to turn to be going the right way
-		RudderPos = ((255/127.5)*RelativeBearing)+RudderTrim;					// Figure out how much to steer the rudder to get us to turn the right way
+	if (Fix) { // If the GPS has a fix with satellites, start driving the boat
+
+		Heading = GetHeading(); // Find the direction the vessel is facing
+
+		switch (Mode) {
+		case 0: // Hold
+			// Do nothing
+			break;
+		case 1: // Waypoint Bearing
+			ModeWaypointHeading();
+			break;
+		case 2: // Waypoint Course
+			ModeWaypointPath();
+			break;
+		case 3: // Heading
+			ModeHeading();
+			break;
+		case 4: // Loiter
+			ModeLoiter();
+			break;
+		// case 5: // Return Home
+		// 	/* code */
+		// 	break;
+		// case 6: // Low Power
+		// 	/* code */
+		// 	break;
+		default: // If for some reason the input is invalid
+			// TODO: Error
+			Mode = 0; // Go to Hold mode
+			break;
+		}
 
 		// Make sure we don't turn the rudder too much and pass our rudder min/max limits
-		if(RudderPos >= (RudderTrim + RudderRange)){
-			RudderPos = RudderTrim + RudderRange;
+		if (RudderPWM >= (RudderTrim + RudderRange)) {
+			RudderPWM = RudderTrim + RudderRange;
 		}
-		else if (RudderPos <= (RudderTrim - RudderRange)) {
-			RudderPos = RudderTrim - RudderRange;
+		else if (RudderPWM <= (RudderTrim - RudderRange)) {
+			RudderPWM = RudderTrim - RudderRange;
 		}
-		Rudder.write(RudderPos); // Steer the rudder
-		Motor.write(15); // Start the motor
+		
+		ThrottlePWM = 15; // Set throttle to
 
-		if(CheckWaypointCompletion()){ // Check if we have reached the next waypoint
-			TargetWaypoint++; // Advance to the next waypoint
+		if (WaypointComplete()) { // Check if we have reached the next waypoint
+			Target++; // Advance to the next waypoint
+			if (Waypoints[Target].changeMode != _NULL){ // If it is NULL just keep the current mode
+				Mode = Waypoints[Target].changeMode;
+			}
 		}
-
-		// TODO: Add waypoint advancement
-		// TODO: Add loiter mode
-		// TODO: Loiter when last waypoint is reached
 	}
-	else {
-		Motor.write(0); // Stop the motor
-		Rudder.write(RudderTrim); // Center the rudder
+	else { // Hold
+		ModeHold();
+	}
+
+	// Only write to the servo if we have a new PWM value to give it
+	static short curRudderPos = RudderTrim; // Set the current Rudder PWM to center on startup
+	if (RudderPWM != curRudderPos) {
+		Rudder.write(RudderPWM);	// If the throttle has changed then update the ESC
+		curRudderPos = RudderPWM;	// Update the current Rudder PWM
+	}
+
+	// Only write to the ESC if we have a new PWM (throttle) value to give it
+	static short curThrottle = ThrottleOff; // Set the current throttle to 0 on startup
+	if (ThrottlePWM != curThrottle) {
+		Motor.write(ThrottlePWM);	// If the throttle has changed then update the ESC
+		curThrottle = ThrottlePWM;	// Update the current throttle
 	}
 
 }	// End loop
 
 
-void setupDevices(){
-	SerialLog.println("STARTING GPS SERIAL...");
+void deviceSetup() {
+	SerialDebug.println("STARTING SD CARD...");
+	if (!SD.begin(SdioConfig(FIFO_SDIO))) {
+		SerialDebug.println("====== ERROR: COULD NOT INITIALIZE SD CARD! ======");
+	}
+
+	SerialDebug.println("STARTING GPS SERIAL...");
 	gpsSerial.begin(9600);
 
-	SerialLog.println("STARTING RTC...");
+	SerialDebug.println("STARTING RTC...");
 	if (!rtc.begin()) {
-		SerialLog.println("====== ERROR: COULD NOT FIND RTC! ======");
+		SerialDebug.println("====== ERROR: COULD NOT FIND RTC! ======");
 	}
 	
-	SerialLog.println("STARTING LSM303DLHC...");
+	SerialDebug.println("STARTING LSM303DLHC...");
 	if (!mag.begin()) {
-		SerialLog.println("====== ERROR: COULD NOT FIND LSM303 MAGNETOMETER! ======");
+		SerialDebug.println("====== ERROR: COULD NOT FIND LSM303 MAGNETOMETER! ======");
 	}
 	if (!accl.begin()) {
-		SerialLog.println("====== ERROR: COULD NOT FIND LSM303 ACCELEROMETER! ======");
+		SerialDebug.println("====== ERROR: COULD NOT FIND LSM303 ACCELEROMETER! ======");
 	}
 
-	SerialLog.println("SETTING UP RUDDER SERVO...");
-	if(!Rudder.attach(22, RudderMinPWM, RudderMaxPWM)){
-		SerialLog.println("====== ERROR: FAILED ATTACHING RUDDER SERVO! ======");
+	SerialDebug.println("SETTING UP RUDDER SERVO...");
+	if (!Rudder.attach(22, RudderMinPW, RudderMaxPW)) {
+		SerialDebug.println("====== ERROR: FAILED ATTACHING RUDDER SERVO! ======");
 	}
+	Rudder.write(RudderTrim);
 
 	Serial.println("SETTING UP ESC...");
 	if (!Motor.attach(23, 1000, 2000)) {
-		SerialLog.println("====== ERROR: COULD NOT SET UP ESC! ======");
-		SerialLog.println("ABORT ARMING ESC DUE TO FAILURE SETTING UP ESC");
+		SerialDebug.println("====== ERROR: COULD NOT SET UP ESC! ======");
+		SerialDebug.println("ABORT ARMING ESC DUE TO FAILURE SETTING UP ESC");
 	}
 	else {
-		SerialLog.println("ARMING ESC...");
+		SerialDebug.println("ARMING ESC...");
 		Motor.write(0);
-	}
-
-
-	SerialLog.println("STARTING SD CARD...");
-	if (!SD.begin(SdioConfig(FIFO_SDIO))) {
-		SerialLog.println("====== ERROR: COULD NOT INITIALIZE SD CARD! ======");
 	}
 }

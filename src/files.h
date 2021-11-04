@@ -1,102 +1,175 @@
+#include "global.h"
+
 #include <ArduinoJson.h>
 #include <SPI.h>
 #include <SdFat.h>
 SdFat32 SD;
 
+// TODO: Check the amount of memory these take:
 File32 missionProfile;
 File32 missionLog;
 File32 dataLog;
 
-DMAMEM char fileCharArray[10000]; // Holds chars from SD read
-DMAMEM StaticJsonDocument<10000> deserializedJson; // Nested array that holds the deserialized json contents from SD reads
-DMAMEM StaticJsonDocument<10000> serializedJson; // Nested array that holds the serialized json contents for SD writes
+// This variable is initiated with 100KB in RAM2
+DMAMEM StaticJsonDocument<100000> json; // Nested array to hold json contents when reading and writing to SD card
 
-extern struct Waypoint Waypoints[100];
-
-bool loadMissionProfile(String path) {
+bool loadMissionProfile(short profileIndex) {
+	String path = PROFILE_DIR + PROFILE_FILENAME + profileIndex + FILE_EXT;
+	SerialDebug.println(path);
 	missionProfile = SD.open(path, FILE_READ);
-	if (missionProfile) { // Check if the file opened
-		int i = 0;
-		while(missionProfile.available()) { // read from the file until there's nothing else in it:
-			fileCharArray[i] = missionProfile.read();
-			i++;
-		}
-		missionProfile.close(); // Close file on SD card
-
-		// Deserialize the JSON document
-		DeserializationError error = deserializeJson(deserializedJson, fileCharArray);
-		if (error) { // Test if parsing succeeds.
-			Serial.print(F("deserializeJson() failed: "));
-			Serial.println(error.f_str());
-		}
-
-		for(unsigned int i=0; i<sizeof deserializedJson["waypoints"]; i++) {
-			Waypoints[i] = Waypoint {.lat = deserializedJson["waypoints"][i][0], .lon = deserializedJson["waypoints"][i][1]};
-		}
-			
-		return true; 
-	} else {
-		Serial.println("error opening '" + path + "'");
-		return false;
+	
+	if (!missionProfile) { // Check if the file opened
+		SerialDebug.println("error opening '" + path + "'");
+		return false; // Return false if there is an error
 	}
+
+	// Deserialize the JSON document
+	DeserializationError error = deserializeJson(json, missionProfile);
+	if (error) { // Test if parsing succeeds.
+		SerialDebug.print(F("deserializeJson() failed: "));
+		SerialDebug.println(error.f_str());
+		return false; // Return false if there is an error
+	}
+
+	for(unsigned short i=0; i < sizeof(json["waypoints"]); i++) {
+		Waypoints[i] = Waypoint {.lat = json["waypoints"][i][0], .lon = json["waypoints"][i][1], .radius = json["waypoints"][i][2], .changeMode = json["waypoints"][i][3]};
+	}
+	json.clear();
+	return true; 
 }
 
-void updateMissionLog(String path){
-	// JsonArray datetime = serializedJson.createNestedArray("datetime");
-	missionLog = SD.open(path, FILE_WRITE);
+// bool fetchMissionLog(unsigned short fileIndex) {
+// 	String path = LOG_DIR + LOG_FILENAME + fileIndex + FILE_EXT;
+// 	missionLog = SD.open(path, FILE_READ);
+	
+// 	if (!missionLog) { // Check if the file opened
+// 		SerialDebug.println("error opening '" + path + "'");
+// 		return false; // Return false if there is an error
+// 	}
+
+// 	// Deserialize the JSON document
+// 	DeserializationError error = deserializeJson(json, missionLog);
+// 	json.clear();
+// 	if (error) { // Test if parsing succeeds.
+// 		SerialDebug.print(F("deserializeJson() failed: "));
+// 		SerialDebug.println(error.f_str());
+// 		return false; // Return false if there is an error
+// 	}
+
+// 	return true; 
+// }
+
+void updateMissionLog(){
+	short index = 0;
+	while(true){ // Find the last log file. If non exist, create one
+		if(!SD.exists(LOG_DIR+LOG_FILENAME+index+FILE_EXT)){ // Check if log file exists
+			if(index == 0){
+				missionLog = SD.open(LOG_DIR+LOG_FILENAME+0+FILE_EXT, FILE_WRITE);	// Create and open new log file
+				missionLog.close();																	// Close log file
+				break;
+			} else {
+				index--; // Move back to the last log file that existed
+				break;
+			}
+		}
+		index++; // Move to next log file
+	}
+
+	JsonObject object = json.createNestedObject();
+	object["datetime"] = now.day() + '/' + now.month() + '/' + now.year() + ' ' + now.hour() + ':' + now.minute() + ':' + now.second();
+
+	JsonObject jsonGPS = object.createNestedObject("gps");
+	if (gps.date.isValid() && gps.time.isValid()) {
+		String datetime = String(gps.date.day()) + '/' + String(gps.date.month()) + '/' + String(gps.date.year()) + ' ' + String(gps.time.hour()) + ':' + String(gps.time.minute()) + ':' + String(gps.time.second());
+		jsonGPS["datetime"] = datetime;
+	} else {
+		jsonGPS["datetime"] = "xx/xx/xxxx xx:xx:xx";
+	}
+	jsonGPS["fix"] = GPSFix.value();
+	jsonGPS["lat"] = CurrLat;
+	jsonGPS["long"] = CurrLong;
+	jsonGPS["heading"] = Heading;
+	jsonGPS["bearing"] = Bearing;
+
+	String objectString;
+	serializeJson(json, objectString); // Serialize the new json document and save it to a string so we can read the length
+
+	// Check the log file size and the size of log entry we want to add. If they are above 100KB then create a new file
+	missionLog = SD.open(LOG_DIR+LOG_FILENAME+index+FILE_EXT, FILE_WRITE);
+	if (missionLog.size() + objectString.length() >= 100000) {
+		missionLog.close();
+		index++; // Move to next log file
+		missionLog = SD.open(LOG_DIR+LOG_FILENAME+index+FILE_EXT, FILE_WRITE);
+	}
+
+	// TODO: check if it is the first entry before adding comma and remove the extra [] around each entry
+	missionLog.print(','); // Add comma before next entry
+	serializeJson(json, missionLog);
+	json.clear();
 	missionLog.close();
-	Serial.print("Date/Time: ");
-	Serial.print(now.year(), DEC);
-	Serial.print('/');
-	Serial.print(now.month(), DEC);
-	Serial.print('/');
-	Serial.print(now.day(), DEC);
-	Serial.print(" ");
-	Serial.print(now.hour(), DEC);
-	Serial.print(':');
-	Serial.print(now.minute(), DEC);
-	Serial.print(':');
-	Serial.print(now.second(), DEC);
-	if (gps.date.isValid()) {
-		Serial.print("	Date: ");
-		Serial.print(gps.date.year());
-		Serial.print('/');
-		Serial.print(gps.date.month());
-		Serial.print('/');
-		Serial.print(gps.date.day());
-		// Serial.print(" ");
-	} else {
-		Serial.print("	Date: ");
-		Serial.print("xx");
-		Serial.print(':');
-		Serial.print("xx");
-		Serial.print(':');
-		Serial.print("xx");
+
+	if (DEBUG_LOGDUMP) { // Activate in 'global.h'
+		SerialDebug.print("Date/Time: ");
+		SerialDebug.print(now.year(), DEC);
+		SerialDebug.print('/');
+		SerialDebug.print(now.month(), DEC);
+		SerialDebug.print('/');
+		SerialDebug.print(now.day(), DEC);
+		SerialDebug.print(" ");
+		SerialDebug.print(now.hour(), DEC);
+		SerialDebug.print(':');
+		SerialDebug.print(now.minute(), DEC);
+		SerialDebug.print(':');
+		SerialDebug.print(now.second(), DEC);
+		if (gps.date.isValid()) {
+			SerialDebug.print("	GPS Date: ");
+			SerialDebug.print(gps.date.year());
+			SerialDebug.print('/');
+			SerialDebug.print(gps.date.month());
+			SerialDebug.print('/');
+			SerialDebug.print(gps.date.day());
+			// SerialDebug.print(" ");
+		} else {
+			SerialDebug.print("	GPS Date: ");
+			SerialDebug.print("xx");
+			SerialDebug.print(':');
+			SerialDebug.print("xx");
+			SerialDebug.print(':');
+			SerialDebug.print("xx");
+		}
+		if (gps.time.isValid()) {
+			SerialDebug.print("	GPS Time: ");
+			SerialDebug.print(gps.time.hour());
+			SerialDebug.print(':');
+			SerialDebug.print(gps.time.minute());
+			SerialDebug.print(':');
+			SerialDebug.print(gps.time.second());
+		} else {
+			SerialDebug.print("	GPS Time: ");
+			SerialDebug.print("xx");
+			SerialDebug.print(':');
+			SerialDebug.print("xx");
+			SerialDebug.print(':');
+			SerialDebug.print("xx");
+		}
+		SerialDebug.print("	GPS Fix: ");
+		SerialDebug.print(GPSFix.value());
+		SerialDebug.print("	Lat/Long: ");
+		SerialDebug.print(CurrLat,6);
+		SerialDebug.print(", ");
+		SerialDebug.print(CurrLong,6);
+		SerialDebug.print("	Mode: ");
+		SerialDebug.print(Mode);
+		SerialDebug.print("	Heading: ");
+		SerialDebug.print(Heading);
+		SerialDebug.print("	Bearing: ");
+		SerialDebug.print(Bearing);
+		SerialDebug.print("	Relative Bearing: ");
+		SerialDebug.print(RelativeBearing);
+		SerialDebug.print("	Throttle PWM: ");
+		SerialDebug.print(ThrottlePWM);
+		SerialDebug.print("	Rudder PWM: ");
+		SerialDebug.print(RudderPWM);
+		SerialDebug.println();
 	}
-	if (gps.time.isValid()) {
-		Serial.print("	Time: ");
-		Serial.print(gps.time.hour());
-		Serial.print(':');
-		Serial.print(gps.time.minute());
-		Serial.print(':');
-		Serial.print(gps.time.second());
-	} else {
-		Serial.print("	Time: ");
-		Serial.print("xx");
-		Serial.print(':');
-		Serial.print("xx");
-		Serial.print(':');
-		Serial.print("xx");
-	}
-	Serial.print("	GPS Fix: ");
-	Serial.print(GPSFix.value());
-	Serial.print("	Lat/Long: ");
-	Serial.print(CurrLat,6);
-	Serial.print(", ");
-	Serial.print(CurrLong,6);
-	Serial.print("	Heading: ");
-	Serial.print(Heading);
-	Serial.print("	Bearing:");
-	Serial.print(Bearing);
-	Serial.println();
 }

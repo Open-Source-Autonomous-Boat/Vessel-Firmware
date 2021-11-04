@@ -2,3 +2,5 @@
 // Check esc/motor
 // Check rudder
 // Check satellite link
+
+#include "global.h"

@@ -1,19 +1,16 @@
-// TODO: Add check for if we have reached waypoint
+/**
+ * IMPORTANT: Our the functions in loop() take too long to execute causing the serial buffer to fill up before we can read it. Increasing the serial buffer size for Serial2 fixes this.
+ * To do this, first go to the 'HardwareSerial2.cpp' file in your teensy core
+ * Then change '#define SERIAL2_RX_BUFFER_SIZE 64' to '#define SERIAL2_RX_BUFFER_SIZE 256' and save the file
+ * This file can usually be found here on windows: 'C:\Program Files (x86)\Arduino\hardware\teensy\avr\cores\teensy4\HardwareSerial2.cpp'
+ */
+
+#include "global.h"
 
 // ===GPS===
-#define gpsSerial Serial2 // Teensy 4.1 hardware serial port 2. This is the same as setting the serial pins to 7 and 8
-/* IMPORTANT: Our loop() takes too long causing the serial buffer to fill up before we can read it. Increasing the serial buffer size for Serial2 fixes this.
- * To do this, go to 'C:\Program Files (x86)\Arduino\hardware\teensy\avr\cores\teensy4\HardwareSerial2.cpp'
- * Then change '#define SERIAL2_RX_BUFFER_SIZE 64' to '#define SERIAL2_RX_BUFFER_SIZE 256' and save the file
- */
 #include <TinyGPS++.h>
 TinyGPSPlus gps;
 TinyGPSCustom GPSFix(gps, "GPGGA", 7);
-
-extern float CurrLat, CurrLong, TargetLat, TargetLong;
-extern int TargetWaypoint;
-extern struct Waypoint Waypoints[100];
-extern bool Fix;
 
 // ===LSM303===
 #include <Adafruit_Sensor.h>
@@ -24,19 +21,18 @@ Adafruit_LSM303_Accel_Unified accl = Adafruit_LSM303_Accel_Unified(00000);
 Adafruit_LSM303_Mag_Unified mag = Adafruit_LSM303_Mag_Unified(00001);
 
 //Calibration variables for LSM303. Callibration sketch here: https://learn.adafruit.com/lsm303-accelerometer-slash-compass-breakout/calibration
-float magMinX = -69.73;
-float magMaxX = 50.36;
-float magMinY = -29.27;
-float magMaxY = 94.91;
-float magMinZ = -76.94;
-float magMaxZ = 77.24;
-float refMinX = -54.51;
-float refMaxX = 49.02;
-float refMinY = -54.08;
-float refMaxY = 55.91;
-float refMinZ = -57.62;
-float refMaxZ = 55.57;
-
+const float magMinX = -69.73;
+const float magMaxX = 50.36;
+const float magMinY = -29.27;
+const float magMaxY = 94.91;
+const float magMinZ = -76.94;
+const float magMaxZ = 77.24;
+const float refMinX = -54.51;
+const float refMaxX = 49.02;
+const float refMinY = -54.08;
+const float refMaxY = 55.91;
+const float refMinZ = -57.62;
+const float refMaxZ = 55.57;
 
 // This function runs two point calibration for the LSM303 magnetometer
 float getCorrectedValue(float value, float rawMin, float rawMax, float refMin, float refMax){
@@ -47,8 +43,6 @@ float getCorrectedValue(float value, float rawMin, float rawMax, float refMin, f
 }
 
 float GetHeading(){
-	float pi = 3.14159;
-	
 	// Get new sensor events
 	sensors_event_t MagEvent;
 	mag.getEvent(&MagEvent);
@@ -59,7 +53,7 @@ float GetHeading(){
 	float correctedY = getCorrectedValue(MagEvent.magnetic.y, magMinY, magMaxY, refMinY, refMaxY);
 
 	// Calculate the angle of the vector y,x
-	float heading = (atan2(correctedY, correctedX) * 180) / pi;
+	float heading = (atan2(correctedY, correctedX) * 180) / M_PI;
 
 	// Normalize to 0-360
 	if (heading < 0) {
@@ -67,21 +61,23 @@ float GetHeading(){
 	}
 	return heading;
 
+	if(DEBUG_RAW_IMU){ // Activate in 'global.h'
+		// Display the results (magnetic vector values are in micro-Tesla (uT))
+		SerialDebug.print("X: "); SerialDebug.print(MagEvent.magnetic.x); SerialDebug.print("  ");
+		SerialDebug.print("Y: "); SerialDebug.print(MagEvent.magnetic.y); SerialDebug.print("  ");
+		SerialDebug.print("Z: "); SerialDebug.print(MagEvent.magnetic.z); SerialDebug.print("  ");SerialDebug.println("uT");
 
-	// Display the results (magnetic vector values are in micro-Tesla (uT))
-	// SerialLog.print("X: "); SerialLog.print(MagEvent.magnetic.x); SerialLog.print("  ");
-	// SerialLog.print("Y: "); SerialLog.print(MagEvent.magnetic.y); SerialLog.print("  ");
-	// SerialLog.print("Z: "); SerialLog.print(MagEvent.magnetic.z); SerialLog.print("  ");SerialLog.println("uT");
-
-	// Display the results (acceleration is measured in m/s^2) */
-	// SerialLog.print("X: "); SerialLog.print(AcclEvent.acceleration.x); SerialLog.print("  ");
-	// SerialLog.print("Y: "); SerialLog.print(AcclEvent.acceleration.y); SerialLog.print("  ");
-	// SerialLog.print("Z: "); SerialLog.print(AcclEvent.acceleration.z); SerialLog.print("  ");SerialLog.println("m/s^2 ");
+		// Display the results (acceleration is measured in m/s^2) */
+		SerialDebug.print("X: "); SerialDebug.print(AcclEvent.acceleration.x); SerialDebug.print("  ");
+		SerialDebug.print("Y: "); SerialDebug.print(AcclEvent.acceleration.y); SerialDebug.print("  ");
+		SerialDebug.print("Z: "); SerialDebug.print(AcclEvent.acceleration.z); SerialDebug.print("  ");SerialDebug.println("m/s^2 ");
+	}
+	
 }
 
-bool CheckWaypointCompletion(){
-	double dist = CalcDistance(CurrLat, CurrLong, TargetLat, TargetLong);
-	if(dist <= Waypoints[TargetWaypoint].radius){
+bool WaypointComplete(){ // Returns true if vessel has reached the target waypoint
+	float dist = CalcDistance(CurrLat, CurrLong, Waypoints[Target].lat, Waypoints[Target].lon);
+	if(dist <= Waypoints[Target].radius){
 		return true;
 	} else {
 		return false;
@@ -96,18 +92,20 @@ void FetchGPS() {
 				CurrLat = gps.location.lat();
 				CurrLong = gps.location.lng();
 
-			// TODO: Get speed and course from GPS
+			// TODO: Get speed and course over ground (track) from GPS
 			
 			if (gps.date.isValid() && gps.time.isValid() && Fix) {
 				UpdateClock(gps.date.year(), gps.date.month(), gps.date.day(), gps.time.hour(), gps.time.minute(), gps.time.second());
 			}
 		}
-		// SerialLog.write(c); // Uncomment to see the GPS data flowing
+		if (DEBUG_RAW_GPS){ // Activate in 'global.h'
+			SerialDebug.write(c); // Print the raw GPS sentences
+		}
 	}
 
 }
 
-void UpdateFix(){
+void UpdateFix(){ // Sets 'Fix' to true if GPS fix is above 0
 	if(GPSFix.isUpdated()) {
 		String f = GPSFix.value();
 		switch (f.toInt()) {
@@ -141,3 +139,38 @@ void UpdateFix(){
 		}
 	}
 }
+
+/**======================
+ *    Navigation Modes
+ *========================**/
+
+void ModeHold(){
+	ThrottlePWM = ThrottleOff; // Stop the motor
+	RudderPWM = RudderTrim; // Center the rudder
+}
+
+void ModeWaypointHeading() {
+	Bearing = CalcBearing(CurrLat, CurrLong, Waypoints[Target].lat, Waypoints[Target].lon); // Find the direction we need to be going
+	RelativeBearing = Heading - Bearing; // Figure out the angle between the vessel and the target waypoint
+	// Figure out how much to turn the rudder by using the RelativeBearing as an input to a linear equation where y=RudderPWM
+	RudderPWM = ((255/127.5)*RelativeBearing)+RudderTrim;
+}
+
+void ModeWaypointPath() {
+	// TODO: Write code
+}
+
+void ModeHeading() {
+	// TODO: Write code
+}
+
+void ModeLoiter() {
+	// TODO: Write code
+}
+
+// void ModeReturnHome() {
+	
+// }
+// void ModeLowPower() {
+	
+// }
