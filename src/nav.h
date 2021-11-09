@@ -35,14 +35,14 @@ const float refMinZ = -57.62;
 const float refMaxZ = 55.57;
 
 // This function runs two point calibration for the LSM303 magnetometer
-float getCorrectedValue(float value, float rawMin, float rawMax, float refMin, float refMax){
+FASTRUN float getCorrectedValue(float value, float rawMin, float rawMax, float refMin, float refMax){
 	float rawRange = rawMax - rawMin;
 	float refRange = refMax - refMin;
 	float correctedValue = (((value-rawMin)*refRange)/rawRange)+refMin;
 	return correctedValue;
 }
 
-float GetHeading(){
+FASTRUN float GetHeading(){
 	// Get new sensor events
 	sensors_event_t MagEvent;
 	mag.getEvent(&MagEvent);

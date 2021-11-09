@@ -31,7 +31,7 @@ Tasker tasker;
 
 void deviceSetup(); // Declare deviceSetup() function before it is used in setup()
 
-void setup() {
+FLASHMEM void setup() {
 	delay(1000); // Delays startup for when turning on or uploading new code to help will debugging
 
 	tasker.setInterval(updateMissionLog, 1000); // Update mission log every 1 second
@@ -79,7 +79,7 @@ void setup() {
 	// SerialDebug.println();
 }
 
-void loop() {
+FASTRUN void loop() {
 	tasker.loop();
 
 	fetchSerialCommands();
@@ -89,7 +89,7 @@ void loop() {
 	UpdateFix();	// Check if the GPS has a fix and write it to the 'fix' bool
 	
 	if (Fix) { // If the GPS has a fix with satellites, start driving the boat
-
+	
 		Heading = GetHeading(); // Find the direction the vessel is facing
 
 		switch (Mode) {
@@ -158,7 +158,7 @@ void loop() {
 }	// End loop
 
 
-void deviceSetup() {
+FLASHMEM void deviceSetup() {
 	SerialDebug.println("STARTING SD CARD...");
 	if (!SD.begin(SdioConfig(FIFO_SDIO))) {
 		SerialDebug.println("====== ERROR: COULD NOT INITIALIZE SD CARD! ======");

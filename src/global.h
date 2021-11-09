@@ -16,16 +16,17 @@
 
 #define _NULL 0 // Null for when you need a little null in your life
 
+// Currently the serial ports we are using have not been decided so some of the comments might be off
 #define gpsSerial Serial5		// Hardware serial port 2. This is the same as setting the serial pins to 7 and 8 on the Teensy 4.1
 #define SerialDebug Serial		// For USB serial monitor
 //#define SerialDebug Serial1	// For bluetooth serial monitor via ESP32
 
 // Turn On/Off Debug Messages
 // TODO: Maybe implement this in the future https://andrewsleigh.com/fab-slider/coding-better-debugging/
-#define DEBUG_LOADED_WAYPOINTS 1		// Outputs the loaded waypoints on startup
-#define DEBUG_LOGDUMP 1					// Outputs formatted navigation and system variables like time, mode, and location
-#define DEBUG_RAW_GPS 0					// Outputs the raw GPS sentences
-#define DEBUG_RAW_IMU 0					// Outputs raw IMU readings
+#define DEBUG_LOADED_WAYPOINTS 1		// Output the loaded waypoints on startup
+#define DEBUG_LOGDUMP 1					// Output formatted navigation and system variables like time, mode, and location
+#define DEBUG_RAW_GPS 0					// Output the raw GPS sentences
+#define DEBUG_RAW_IMU 0					// Output raw IMU readings
 
 
 /**==============================================
@@ -56,7 +57,7 @@ short Mode = 0;							// Vessel's mode of operation. Initialize as 0
  * 4 = Return Home
  * 5 = Low Power
  */
-bool Fix = 0;								// Set to true when the GPS fix is >0
+bool Fix = false;								// Set to true when the GPS fix is >0
 /** TODO: Check if we use true north or magnetic north in our calculations */
 // All angles are relative to north unless otherwise stated
 short Course;								// The angle between the previous waypoint and the target waypoint
@@ -134,6 +135,7 @@ String LOG_FILENAME = "MissionLog";					// Root path for mission log files
 String DLOG_FILENAME = "DataLog";							// Root path for data log files
 
 // TODO: Hardcode Default and Abort mission profiles??
+// Make costant?
 short MISSION_ABORT_HOME = 0;	// Index of 'Abort Mission' mission profile (Abort to mission launch location)
 short MISSION_ABORT_NEAREST = 1;	// Index of 'Abort Mission' mission profile (Abort to nearest abort location)
 short MISSION_ABORT_ONE = 2;	// Index of 'Abort Mission' mission profile (Abort to abort location one)
