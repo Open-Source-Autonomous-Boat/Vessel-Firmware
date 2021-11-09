@@ -168,9 +168,25 @@ void ModeLoiter() {
 	// TODO: Write code
 }
 
-// void ModeReturnHome() {
-	
-// }
-// void ModeLowPower() {
-	
+void ModeAbort() {
+	float dist = CalcDistance(CurrLat, CurrLong, Waypoints[Target].lat, Waypoints[Target].lon);
+	if(dist <= Waypoints[Target].radius){
+		// TODO: Add loiter code
+	} else {
+		Bearing = CalcBearing(CurrLat, CurrLong, Abort.lat, Abort.lon); // Find the direction we need to be going
+		RelativeBearing = Heading - Bearing; // Figure out the angle between the vessel and the target waypoint
+		// Figure out how much to turn the rudder by using the RelativeBearing as an input to a linear equation where y=RudderPWM
+		RudderPWM = ((255/127.5)*RelativeBearing)+RudderTrim;
+	}
+}
+
+void ModeReturnHome() {
+	Bearing = CalcBearing(CurrLat, CurrLong, Waypoints[Target].lat, Waypoints[Target].lon); // Find the direction we need to be going
+	RelativeBearing = Heading - Bearing; // Figure out the angle between the vessel and the target waypoint
+	// Figure out how much to turn the rudder by using the RelativeBearing as an input to a linear equation where y=RudderPWM
+	RudderPWM = ((255/127.5)*RelativeBearing)+RudderTrim;
+}
+
+// void LowPower() {
+//	// TODO: Write code
 // }

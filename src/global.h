@@ -46,6 +46,8 @@ struct Waypoint {							// Struct to hold a waypoint
 };
 
 Waypoint Waypoints[100] = {'\0'};	// Initialize struct to hold mission waypoints and fill with NULL
+PROGMEM const Waypoint Abort = {.lat = 45.212018, .lon = -123.972962, .radius = 20, .changeMode = 3};
+PROGMEM const Waypoint Home = {.lat = 45.212018, .lon = -123.972962, .radius = 20, .changeMode = 3};
 
 short Mode = 0;							// Vessel's mode of operation. Initialize as 0
 /** Mode
@@ -53,9 +55,10 @@ short Mode = 0;							// Vessel's mode of operation. Initialize as 0
  * 1 = Waypoint Bearing: Tries to keep its heading pointed toward the target waypoint
  * 2 = Waypoint Course: Tries to follow the line between the previous waypoint and the target waypoint
  * 3 = Heading: Tries to keep its heading equal to a given angle relative to north (TODO: Check if we are using true north or magnetic north)
- * 3 = Loiter: Holds (does nothing) while within the radius of the target waypoint. If it drifts out of the radius it rotates towards the waypoint or directly away from it (whichever results in less rotation) and drives/floats forwards/backwards (at 0.5 m/s * the distance to the edge of the target radius)
- * 4 = Return Home
- * 5 = Low Power
+ * 4 = Loiter: Holds (does nothing) while within the radius of the target waypoint. If it drifts out of the radius it rotates towards the waypoint or directly away from it (whichever results in less rotation) and drives/floats forwards/backwards (at 0.5 m/s * the distance to the edge of the target radius)
+ * 5 = Return Home
+ * 6 = Abort
+ * 7 = Low Power
  */
 bool Fix = false;								// Set to true when the GPS fix is >0
 /** TODO: Check if we use true north or magnetic north in our calculations */
@@ -146,7 +149,7 @@ short MISSION_ONE = 4;		// Index of first user mission profile
 // Go to Pacific City, Oregon and loiter in a 40 meter bubble off the coast right across from the path to our house.
 // I chose this spot because there are less people there, we are familiar with it, and it is easy to reach
 // Make costant?
-const String MISSION_ABORT_HOME_PROFILE = "{\"waypoints\":[\"45.212018\",\"-123.972962\",\"20\",\"3\"]}"; 
+// const String MISSION_ABORT_HOME_PROFILE = "{\"waypoints\":[\"45.212018\",\"-123.972962\",\"20\",\"3\"]}";
 
 
 /**==============================================

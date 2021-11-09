@@ -30,6 +30,7 @@ PWMServo Motor;
 Tasker tasker;
 
 void deviceSetup(); // Declare deviceSetup() function before it is used in setup()
+void run(); // Declare run() function before it is used in loop()
 
 FLASHMEM void setup() {
 	delay(1000); // Delays startup for when turning on or uploading new code to help will debugging
@@ -80,80 +81,13 @@ FLASHMEM void setup() {
 }
 
 FASTRUN void loop() {
-	tasker.loop();
 
-	fetchSerialCommands();
-
-	now = rtc.now();
-	FetchGPS();		// Get the data from the GPS
-	UpdateFix();	// Check if the GPS has a fix and write it to the 'fix' bool
+	if (Mode==7) {
+		// TODO: Write code
+	} else {
+		run();
+	}
 	
-	if (Fix) { // If the GPS has a fix with satellites, start driving the boat
-	
-		Heading = GetHeading(); // Find the direction the vessel is facing
-
-		switch (Mode) {
-		case 0: // Hold
-			// Do nothing
-			break;
-		case 1: // Waypoint Bearing
-			ModeWaypointHeading();
-			break;
-		case 2: // Waypoint Course
-			ModeWaypointPath();
-			break;
-		case 3: // Heading
-			ModeHeading();
-			break;
-		case 4: // Loiter
-			ModeLoiter();
-			break;
-		// case 5: // Return Home
-		// 	/* code */
-		// 	break;
-		// case 6: // Low Power
-		// 	/* code */
-		// 	break;
-		default: // If for some reason the input is invalid
-			// TODO: Error
-			Mode = 0; // Go to Hold mode
-			break;
-		}
-
-		// Make sure we don't turn the rudder too much and pass our rudder min/max limits
-		if (RudderPWM >= (RudderTrim + RudderRange)) {
-			RudderPWM = RudderTrim + RudderRange;
-		}
-		else if (RudderPWM <= (RudderTrim - RudderRange)) {
-			RudderPWM = RudderTrim - RudderRange;
-		}
-		
-		ThrottlePWM = 15; // Set throttle to
-
-		if (WaypointComplete()) { // Check if we have reached the next waypoint
-			Target++; // Advance to the next waypoint
-			if (Waypoints[Target].changeMode != _NULL){ // If it is NULL just keep the current mode
-				Mode = Waypoints[Target].changeMode;
-			}
-		}
-	}
-	else { // Hold
-		ModeHold();
-	}
-
-	// Only write to the servo if we have a new PWM value to give it
-	static short curRudderPos = RudderTrim; // Set the current Rudder PWM to center on startup
-	if (RudderPWM != curRudderPos) {
-		Rudder.write(RudderPWM);	// If the throttle has changed then update the ESC
-		curRudderPos = RudderPWM;	// Update the current Rudder PWM
-	}
-
-	// Only write to the ESC if we have a new PWM (throttle) value to give it
-	static short curThrottle = ThrottleOff; // Set the current throttle to 0 on startup
-	if (ThrottlePWM != curThrottle) {
-		Motor.write(ThrottlePWM);	// If the throttle has changed then update the ESC
-		curThrottle = ThrottlePWM;	// Update the current throttle
-	}
 
 }	// End loop
 
@@ -190,9 +124,85 @@ FLASHMEM void deviceSetup() {
 	if (!Motor.attach(23, 1000, 2000)) {
 		SerialDebug.println("====== ERROR: COULD NOT SET UP ESC! ======");
 		SerialDebug.println("ABORT ARMING ESC DUE TO FAILURE SETTING UP ESC");
-	}
-	else {
+	} else {
 		SerialDebug.println("ARMING ESC...");
 		Motor.write(0);
+	}
+}
+
+FASTRUN void run() {
+	tasker.loop();
+
+	fetchSerialCommands();
+
+	now = rtc.now();
+	FetchGPS();		// Get the data from the GPS
+	UpdateFix();	// Check if the GPS has a fix and write it to the 'fix' bool
+	
+	if (Fix) { // If the GPS has a fix with satellites, start driving the boat
+
+		Heading = GetHeading(); // Find the direction the vessel is facing
+
+		switch (Mode) {
+		case 0: // Hold
+			ModeHold(); // Do nothing
+			break;
+		case 1: // Waypoint Bearing
+			ModeWaypointHeading();
+			break;
+		case 2: // Waypoint Course
+			ModeWaypointPath();
+			break;
+		case 3: // Heading
+			ModeHeading();
+			break;
+		case 4: // Loiter
+			ModeLoiter();
+			break;
+		case 5: // Return Home
+			ModeReturnHome();
+			break;
+		case 6: // Abort
+			ModeAbort();
+			break;
+		default: // If for some reason the input is invalid
+			// TODO: Error
+			ModeHold(); // Do nothing
+			break;
+		}
+
+		// Make sure we don't turn the rudder too much and pass our rudder min/max limits
+		if (RudderPWM >= (RudderTrim + RudderRange)) {
+			RudderPWM = RudderTrim + RudderRange;
+		}
+		else if (RudderPWM <= (RudderTrim - RudderRange)) {
+			RudderPWM = RudderTrim - RudderRange;
+		}
+		
+		ThrottlePWM = 15; // Set throttle to
+
+		if (WaypointComplete()) { // Check if we have reached the next waypoint
+			Target++; // Advance to the next waypoint
+			if (Waypoints[Target].changeMode != _NULL){ // If it is NULL just keep the current mode
+				Mode = Waypoints[Target].changeMode;
+			}
+		}
+	}
+	else { // Hold
+		ModeHold();
+	}
+
+	// Only write to the servo if we have a new PWM value to give it
+	static short curRudderPos = RudderTrim; // Set the current Rudder PWM to center on startup
+	if (RudderPWM != curRudderPos) {
+		Rudder.write(RudderPWM);	// If the throttle has changed then update the ESC
+		curRudderPos = RudderPWM;	// Update the current Rudder PWM
+	}
+
+	// Only write to the ESC if we have a new PWM (throttle) value to give it
+	static short curThrottle = ThrottleOff; // Set the current throttle to 0 on startup
+	if (ThrottlePWM != curThrottle) {
+		Motor.write(ThrottlePWM);	// If the throttle has changed then update the ESC
+		curThrottle = ThrottlePWM;	// Update the current throttle
 	}
 }
