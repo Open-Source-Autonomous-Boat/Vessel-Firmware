@@ -35,15 +35,19 @@ const float refMinZ = -57.62;
 const float refMaxZ = 55.57;
 
 // This function runs two point calibration for the LSM303 magnetometer
-FASTRUN float getCorrectedValue(float value, float rawMin, float rawMax, float refMin, float refMax){
+float getCorrectedValue(float value, float rawMin, float rawMax, float refMin, float refMax){
 	float rawRange = rawMax - rawMin;
 	float refRange = refMax - refMin;
 	float correctedValue = (((value-rawMin)*refRange)/rawRange)+refMin;
 	return correctedValue;
 }
 
-FASTRUN float GetHeading(){
+float GetHeading(){
 	// Get new sensor events
+	// TODO: Check if device started
+	if (!mag.begin() || !accl.begin()) {
+		return;
+	}
 	sensors_event_t MagEvent;
 	mag.getEvent(&MagEvent);
 	sensors_event_t AcclEvent;
@@ -54,12 +58,10 @@ FASTRUN float GetHeading(){
 
 	// Calculate the angle of the vector y,x
 	float heading = (atan2(correctedY, correctedX) * 180) / M_PI;
-
 	// Normalize to 0-360
 	if (heading < 0) {
 		heading = 360 + heading;
 	}
-	return heading;
 
 	if(DEBUG_RAW_IMU){ // Activate in 'global.h'
 		// Display the results (magnetic vector values are in micro-Tesla (uT))
@@ -73,6 +75,7 @@ FASTRUN float GetHeading(){
 		SerialDebug.print("Z: "); SerialDebug.print(AcclEvent.acceleration.z); SerialDebug.print("  ");SerialDebug.println("m/s^2 ");
 	}
 	
+	return heading;
 }
 
 bool WaypointComplete(){ // Returns true if vessel has reached the target waypoint
