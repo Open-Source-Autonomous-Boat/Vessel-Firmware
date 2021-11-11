@@ -27,7 +27,7 @@ bool loadMissionProfile(short profileIndex) {
 	DeserializationError error = deserializeJson(json, missionProfile);
 	if (error) { // Test if parsing succeeds.
 		SerialDebug.print(F("deserializeJson() failed: "));
-		SerialDebug.println(error.f_str());
+		SerialDebug.println(error.c_str());
 		return false; // Return false if there is an error
 	}
 

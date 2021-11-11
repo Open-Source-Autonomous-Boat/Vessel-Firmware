@@ -1,5 +1,5 @@
 // TODO: Add watchdog timer
-
+#define ARDUINOJSON_ENABLE_PROGMEM 0 // Prevent errors when trying to use PROGMEM
 #include "global.h" // Contains global variables and definitions
 #include "errors.h" // Contains checks to ensure everything is working and error handling for if it is not working
 
