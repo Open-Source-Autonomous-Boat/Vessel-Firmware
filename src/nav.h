@@ -6,6 +6,7 @@
  */
 
 #include "global.h"
+#include <Teensy4Time.h>
 
 // ===GPS===
 #include <TinyGPS++.h>
@@ -46,7 +47,7 @@ float GetHeading(){
 	// Get new sensor events
 	// TODO: Check if device started
 	if (!mag.begin() || !accl.begin()) {
-		return;
+		return 0;
 	}
 	sensors_event_t MagEvent;
 	mag.getEvent(&MagEvent);
@@ -97,8 +98,17 @@ void FetchGPS() {
 
 			// TODO: Get speed and course over ground (track) from GPS
 			
-			if (gps.date.isValid() && gps.time.isValid() && Fix) {
-				UpdateClock(gps.date.year(), gps.date.month(), gps.date.day(), gps.time.hour(), gps.time.minute(), gps.time.second());
+			if (gps.date.isValid() && gps.time.isValid()) {
+				// UpdateRTC(gps.date.year(), gps.date.month(), gps.date.day(), gps.time.hour(), gps.time.minute(), gps.time.second());
+				// setTime(gps.time.hour(), gps.time.minute(), gps.time.second(), gps.date.day(), gps.date.month(), gps.date.year());
+				// if (gps.time.isUpdated()) {
+				// 	SerialDebug.println("Updated Time!");
+				// 	time_t t = gps.time.value();
+				// 	setTime(t);
+				// }
+				// time_t t = gps.time.value();
+				// setTime(t);
+				setTime(gps.time.hour(), gps.time.minute(), gps.time.second(), gps.date.day(), gps.date.month(), gps.date.year());
 			}
 		}
 		if (DEBUG_RAW_GPS){ // Activate in 'global.h'

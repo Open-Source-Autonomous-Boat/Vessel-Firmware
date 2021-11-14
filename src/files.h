@@ -1,4 +1,5 @@
 #include "global.h"
+#include <Teensy4Time.h>
 
 #include <ArduinoJson.h>
 #include <SPI.h>
@@ -76,7 +77,7 @@ void updateMissionLog(){
 	}
 
 	JsonObject object = json.createNestedObject();
-	object["datetime"] = now.day() + '/' + now.month() + '/' + now.year() + ' ' + now.hour() + ':' + now.minute() + ':' + now.second();
+	object["datetime"] = day() + '/' + month() + '/' + year() + ' ' + hour() + ':' + minute() + ':' + second();
 
 	JsonObject jsonGPS = object.createNestedObject("gps");
 	if (gps.date.isValid() && gps.time.isValid()) {
@@ -110,17 +111,17 @@ void updateMissionLog(){
 
 	if (DEBUG_LOGDUMP) { // Activate in 'global.h'
 		SerialDebug.print("Date/Time: ");
-		SerialDebug.print(now.year(), DEC);
+		SerialDebug.print(year(), DEC);
 		SerialDebug.print('/');
-		SerialDebug.print(now.month(), DEC);
+		SerialDebug.print(month(), DEC);
 		SerialDebug.print('/');
-		SerialDebug.print(now.day(), DEC);
+		SerialDebug.print(day(), DEC);
 		SerialDebug.print(" ");
-		SerialDebug.print(now.hour(), DEC);
+		SerialDebug.print(hour(), DEC);
 		SerialDebug.print(':');
-		SerialDebug.print(now.minute(), DEC);
+		SerialDebug.print(minute(), DEC);
 		SerialDebug.print(':');
-		SerialDebug.print(now.second(), DEC);
+		SerialDebug.print(second(), DEC);
 		if (gps.date.isValid()) {
 			SerialDebug.print("	GPS Date: ");
 			SerialDebug.print(gps.date.year());

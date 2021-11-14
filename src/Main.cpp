@@ -4,7 +4,8 @@
 #include "errors.h" // Contains checks to ensure everything is working and error handling for if it is not working
 
 // ===RTC===
-#include <RTClib.h>
+// #include <RTClib.h>
+#include <Teensy4Time.h>
 #include "rtc.h"
 
 // ===Nav & GPS===
@@ -87,7 +88,6 @@ FASTRUN void loop() {
 	} else {
 		run();
 	}
-	
 
 }	// End loop
 
@@ -101,10 +101,10 @@ FLASHMEM void deviceSetup() {
 	SerialDebug.println("STARTING GPS SERIAL...");
 	gpsSerial.begin(9600);
 
-	SerialDebug.println("STARTING RTC...");
-	if (!rtc.begin()) {
-		SerialDebug.println("====== ERROR: COULD NOT FIND RTC! ======");
-	}
+	// SerialDebug.println("STARTING RTC...");
+	// if (!rtc.begin()) {
+	// 	SerialDebug.println("====== ERROR: COULD NOT FIND RTC! ======");
+	// }
 	
 	SerialDebug.println("STARTING LSM303DLHC...");
 	if (!mag.begin()) {
@@ -135,7 +135,7 @@ FASTRUN void run() {
 
 	fetchSerialCommands();
 
-	now = rtc.now();
+	// now = rtc.now();
 	FetchGPS();		// Get the data from the GPS
 	UpdateFix();	// Check if the GPS has a fix and write it to the 'fix' bool
 	
