@@ -1,0 +1,32 @@
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+VIS_Tools	KEYWORD1
+instruc	KEYWORD1
+params	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+VIS_Decode	KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+YOUR_INSTANCE	KEYWORD2
+
+#######################################
+# Structures (KEYWORD3)
+#######################################
+
+VISCommand KEYWORD3
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+YOUR_CONST	LITERAL1
+

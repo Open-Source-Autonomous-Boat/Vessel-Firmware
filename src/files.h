@@ -1,7 +1,16 @@
-#include "global.h"
-#include <Teensy4Time.h>
+/**
+ * @file files.h
+ * @author Micahel MacDonald (@Michael2MacDonald)
+ * @brief 
+ */
 
+#include "global.h" // Contains global variables and definitions
+#include "errors.h" // Contains error handling functions, variables, and definitions
+#include "nav.h" // Contains GPS and navigation information for logging
+
+#define ARDUINOJSON_ENABLE_PROGMEM 0 // Prevent errors when trying to use PROGMEM
 #include <ArduinoJson.h>
+#include <Teensy4Time.h>
 #include <SPI.h>
 #include <SdFat.h>
 SdFat32 SD;
@@ -32,14 +41,15 @@ bool loadMissionProfile(short profileIndex) {
 		return false; // Return false if there is an error
 	}
 
-	for(unsigned short i=0; i < sizeof(json["waypoints"]); i++) {
-		Waypoints[i] = Waypoint {.lat = json["waypoints"][i][0], .lon = json["waypoints"][i][1], .radius = json["waypoints"][i][2], .changeMode = json["waypoints"][i][3]};
+	for(ushort i=0; i < sizeof(json["waypoints"]); i++) {
+		// Waypoints[i] = Waypoint {.lat = json["waypoints"][i][0], .lon = json["waypoints"][i][1], .radius = json["waypoints"][i][2], .changeMode = json["waypoints"][i][3]};
+		Waypoints[i] = Waypoint {.lat = json["waypoints"][i][0], .lon = json["waypoints"][i][1], .radius = json["waypoints"][i][2]};
 	}
 	json.clear();
 	return true; 
 }
 
-// bool fetchMissionLog(unsigned short fileIndex) {
+// bool fetchMissionLog(ushort fileIndex) {
 // 	String path = LOG_DIR + LOG_FILENAME + fileIndex + FILE_EXT;
 // 	missionLog = SD.open(path, FILE_READ);
 	
@@ -60,7 +70,7 @@ bool loadMissionProfile(short profileIndex) {
 // 	return true; 
 // }
 
-void updateMissionLog(){
+void UpdateMissionLog(){
 	short index = 0;
 	while(true){ // Find the last log file. If non exist, create one
 		if(!SD.exists(LOG_DIR+LOG_FILENAME+index+FILE_EXT)){ // Check if log file exists
@@ -108,7 +118,7 @@ void updateMissionLog(){
 	serializeJson(json, missionLog);
 	json.clear();
 	missionLog.close();
-
+	GetHeading();
 	if (DEBUG_LOGDUMP) { // Activate in 'global.h'
 		SerialDebug.print("Date/Time: ");
 		SerialDebug.print(year(), DEC);

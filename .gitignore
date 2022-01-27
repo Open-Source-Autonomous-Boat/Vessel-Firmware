@@ -1,15 +1,15 @@
+# Workspace
 .vscode
 
-# build
-bin
-
-# makefile
+# Makefiles
 makefile
+makefile copy
 
 # dependency files
 # *.d
 
-# output and binaries
+# Output and Binaries
+bin
 tools
 # *.slo
 # *.lo
@@ -21,3 +21,10 @@ tools
 # *.a
 # *.sym
 
+# Project Notes
+notes.md
+diagram.md
+
+commandprocessing.h
+# Not what you think
+ardupilot-copy.h 
