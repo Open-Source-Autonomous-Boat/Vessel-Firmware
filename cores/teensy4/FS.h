@@ -162,6 +162,12 @@ public:
 	size_t read(void *buf, size_t nbyte) {
 		return (f) ? f->read(buf, nbyte) : 0;
 	}
+
+	// override print version
+	virtual size_t write(const uint8_t *buf, size_t size) {
+		return (f) ? f->write((void*)buf, size) : 0;
+	}
+
 	size_t write(const void *buf, size_t size) {
 		return (f) ? f->write(buf, size) : 0;
 	}
@@ -270,6 +276,37 @@ public:
 	virtual bool rmdir(const char *filepath) = 0;
 	virtual uint64_t usedSize() = 0;
 	virtual uint64_t totalSize() = 0;
+	virtual bool format(int type=0, char progressChar=0, Print& pr=Serial) {
+		return false;
+	}
+	virtual bool mediaPresent() {
+		return true;
+	}
+	// for compatibility with String input
+	File open(const String &filepath, uint8_t mode = FILE_READ) {
+		return open(filepath.c_str(), mode);
+	}
+	bool exists(const String &filepath) {
+		return exists(filepath.c_str());
+	}
+	bool mkdir(const String &filepath) {
+		return mkdir(filepath.c_str());
+	}
+	bool rename(const String &oldfilepath, const char *newfilepath) {
+		return rename(oldfilepath.c_str(), newfilepath);
+	}
+	bool rename(const char *oldfilepath, const String &newfilepath) {
+		return rename(oldfilepath, newfilepath.c_str());
+	}
+	bool rename(const String &oldfilepath, const String &newfilepath) {
+		return rename(oldfilepath.c_str(), newfilepath.c_str());
+	}
+	bool remove(const String &filepath) {
+		return remove(filepath.c_str());
+	}
+	bool rmdir(const String &filepath) {
+		return rmdir(filepath.c_str());
+	}
 };
 
 
