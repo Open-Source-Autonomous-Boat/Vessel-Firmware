@@ -1,10 +1,7 @@
 /**
  * @file Flag.h
  * @author Micahel MacDonald (@Michael2MacDonald)
- * @brief This file provides the File class which allows the easy creation and manipulation of bit flags
- * 
- * 
- * 
+ * @brief This file provides the Flag class which allows the easy creation and manipulation of bit flags
  */
 
 
