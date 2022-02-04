@@ -19,7 +19,7 @@ enum ErrorSeverity {
 	Informational, // Not important; Log it
 	Action,        // Manual action is required but the issue is not severe; log it and notify base
 };
-PROGMEM String ErrorSeverityMsg[] = {
+String ErrorSeverityMsg[] = { // Can not use PROGMEM!!!!
 	"===== UNRECOVERABLE ERROR OCCURRED!! ===== \nUNRECOVERABLE: ",
 	"CRITICAL ERROR: ",
 	"ERROR: ",
@@ -34,7 +34,7 @@ struct ErrorCode {
 	String logMsg;
 };
 
-PROGMEM ErrorCode ErrorCodes[MAX_NUM_ERROR] {
+ErrorCode ErrorCodes[MAX_NUM_ERROR] { // Can not use PROGMEM!!!!
 	ErrorCode {.id=0, .severity=Informational, .logMsg="Success, No Error Occurred"},
 	ErrorCode {.id=1, .severity=Informational, .logMsg="Invalid PWM Pin Number (Rudder Servo)"},
 	ErrorCode {.id=2, .severity=Informational, .logMsg="Invalid PWM Pin Number (Motor ESC)"},

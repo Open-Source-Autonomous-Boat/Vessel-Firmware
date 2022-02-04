@@ -4,6 +4,8 @@
  * @brief Contains VIS command management and execution functions
  */
 
+/** TODO: Rename to Command Control System (CCS)????? */
+
 #ifndef _CONTROL_H_
 #define _CONTROL_H_
 

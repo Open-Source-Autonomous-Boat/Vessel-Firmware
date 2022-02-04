@@ -78,15 +78,15 @@ void quaternionToEuler(float qr, float qi, float qj, float qk, euler_t* ypr) {
 
 		// Convert Yaw [-180,180] to [0,360]
 	ypr->yaw = ypr->yaw - (ypr->yaw * 2);
-		if (ypr->yaw < 0) ypr->yaw += 360;
+	if (ypr->yaw < 0) ypr->yaw += 360;
 
-		// Convert Pitch [-180,180] to [0,360]
-		ypr->pitch = ypr->pitch - (ypr->pitch * 2);
-		if (ypr->pitch < 0) ypr->pitch += 360;
+	// Convert Pitch [-180,180] to [0,360]
+	ypr->pitch = ypr->pitch - (ypr->pitch * 2);
+	if (ypr->pitch < 0) ypr->pitch += 360;
 
-		// Convert Roll [-180,180] to [0,360]
-		ypr->roll = ypr->roll - (ypr->roll * 2);
-		if (ypr->roll < 0) ypr->roll += 360;
+	// Convert Roll [-180,180] to [0,360]
+	ypr->roll = ypr->roll - (ypr->roll * 2);
+	if (ypr->roll < 0) ypr->roll += 360;
 }
 
 float GetHeading(){

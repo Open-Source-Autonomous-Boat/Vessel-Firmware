@@ -164,8 +164,11 @@ short WaypointRadius;					// How close the vessel has to get to the target waypo
  * ======================**/
 
 short RudderPWM;							// Holds the current servo PWM value
-short RudderTrim = 100;					// Tune this to the PWM value of the servo when straight
-short RudderRange = 40;					// Max/Min PWM rudder value == RudderTrim +/- RudderRange
+// short RudderTrim = 100;					// Tune this to the PWM value of the servo when straight
+// short RudderRange = 40;					// Max/Min PWM rudder value == RudderTrim +/- RudderRange
+short RudderTrim = 35;					// Tune this to the PWM value of the servo when straight
+short RudderRange = 30;					// Max/Min PWM rudder value == RudderTrim +/- RudderRange
+
 const short RudderMinPW = 1000;		// Sets the min PWM pulse width
 const short RudderMaxPW = 2000;		// Sets the max PWM pulse width
 short RudderPos;							// Holds the current servo position in real life

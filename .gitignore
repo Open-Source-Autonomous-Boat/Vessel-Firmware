@@ -25,6 +25,9 @@ tools
 notes.md
 diagram.md
 
+# Testing, future features, ideas, etc
 commandprocessing.h
+src/modules
+modules
 # Not what you think
 ardupilot-copy.h 
